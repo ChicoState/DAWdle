@@ -1,0 +1,9 @@
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/DAWdle.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/edit_cache.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/rebuild_cache.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/list_install_components.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/install.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/install/local.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/install/strip.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/DAWdle_autogen_timestamp_deps.dir
+C:/Users/steve/Desktop/DAWdle/build-DAWdle-Desktop_Qt_6_6_2_MinGW_64_bit-Debug/CMakeFiles/DAWdle_autogen.dir
