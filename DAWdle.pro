@@ -24,7 +24,5 @@ else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/lib/ -lQtNodesd
 INCLUDEPATH += $$PWD/include
 DEPENDPATH += $$PWD/include
 
-win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$PWD/lib/libQtNodes.a
-else:win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$PWD/lib/libQtNodesd.a
-else:win32:!win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$PWD/lib/QtNodes.lib
+win32:!win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$PWD/lib/QtNodes.lib
 else:win32:!win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$PWD/lib/QtNodesd.lib
