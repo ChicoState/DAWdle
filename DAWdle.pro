@@ -7,9 +7,12 @@ CONFIG += c++17
 DEFINES += NODE_EDITOR_SHARED
 
 SOURCES += \
+    src/decimalinput.cpp \
     src/main.cpp
 
-HEADERS +=
+HEADERS += \
+    src/bufferdata.h \
+    src/decimalinput.h
 
 FORMS +=
 
