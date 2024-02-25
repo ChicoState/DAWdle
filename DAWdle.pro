@@ -7,11 +7,13 @@ CONFIG += c++17
 DEFINES += NODE_EDITOR_SHARED
 
 SOURCES += \
+    src/audiooutputnode.cpp \
     src/decimalinput.cpp \
     src/main.cpp \
     src/sinewavenode.cpp
 
 HEADERS += \
+    src/audiooutputnode.h \
     src/bufferdata.h \
     src/decimalinput.h \
     src/sinewavenode.h
@@ -31,3 +33,8 @@ DEPENDPATH += $$PWD/include
 
 win32:!win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$PWD/lib/QtNodes.lib
 else:win32:!win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$PWD/lib/QtNodesd.lib
+
+unix|win32: LIBS += -L$$PWD/lib/ -lportaudio_x64
+
+INCLUDEPATH += $$PWD/lib
+DEPENDPATH += $$PWD/lib

@@ -8,6 +8,7 @@
 
 #include "decimalinput.h"
 #include "sinewavenode.h"
+#include "audiooutputnode.h"
 
 int main(int argc, char** argv) {
     QApplication app{ argc, argv };
@@ -15,6 +16,7 @@ int main(int argc, char** argv) {
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Sources");
     registry->registerModel<SineWaveNode>("Sources");
+    registry->registerModel<AudioOutputNode>("Sources");
 
     QtNodes::DataFlowGraphModel graph{ registry };
     QtNodes::DataFlowGraphicsScene* scene = new QtNodes::DataFlowGraphicsScene{ graph, &window };
@@ -30,6 +32,10 @@ int main(int argc, char** argv) {
     auto sinNode = std::make_shared<SineWaveNode>();
     QString sinNodeName = sinNode->name();
     graph.addNode(sinNodeName);
+
+    auto audioOutputNode = std::make_shared<AudioOutputNode>();
+    QString audioOutputNodeName = audioOutputNode->name();
+    graph.addNode(audioOutputNodeName);
 
 
     //=====================================
