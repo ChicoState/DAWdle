@@ -8,11 +8,13 @@ DEFINES += NODE_EDITOR_SHARED
 
 SOURCES += \
     src/decimalinput.cpp \
-    src/main.cpp
+    src/main.cpp \
+    src/sinewavenode.cpp
 
 HEADERS += \
     src/bufferdata.h \
-    src/decimalinput.h
+    src/decimalinput.h \
+    src/sinewavenode.h
 
 FORMS +=
 

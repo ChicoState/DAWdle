@@ -7,19 +7,32 @@
 #include <QScreen>
 
 #include "decimalinput.h"
+#include "sinewavenode.h"
 
 int main(int argc, char** argv) {
     QApplication app{ argc, argv };
     QWidget window;
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Sources");
+    registry->registerModel<SineWaveNode>("Sources");
 
     QtNodes::DataFlowGraphModel graph{ registry };
     QtNodes::DataFlowGraphicsScene* scene = new QtNodes::DataFlowGraphicsScene{ graph, &window };
     QtNodes::GraphicsView* view = new QtNodes::GraphicsView{ scene };
 
-    graph.addNode("");
 
+
+    // DEMO ================================
+    auto inputNode = std::make_shared<DecimalInput>();
+    QString inputNodeName = inputNode->name();
+    graph.addNode(inputNodeName);
+
+    auto sinNode = std::make_shared<SineWaveNode>();
+    QString sinNodeName = sinNode->name();
+    graph.addNode(sinNodeName);
+
+
+    //=====================================
     QVBoxLayout* layout = new QVBoxLayout{ &window };
     layout->addWidget(view);
     layout->setContentsMargins(0, 0, 0, 0);
