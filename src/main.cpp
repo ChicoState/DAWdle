@@ -6,13 +6,23 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QScreen>
 
+#include "decimalinput.h"
+#include "sinewavenode.h"
+#include "audiooutputnode.h"
+
 int main(int argc, char** argv) {
     QApplication app{ argc, argv };
     QWidget window;
+    std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
+    registry->registerModel<DecimalInput>("Sources");
+    registry->registerModel<SineWaveNode>("Oscillators");
+    registry->registerModel<AudioOutputNode>("");
 
-    QtNodes::DataFlowGraphModel dataFlowGraphModel{ std::make_shared<QtNodes::NodeDelegateModelRegistry>() };
-    QtNodes::DataFlowGraphicsScene* scene = new QtNodes::DataFlowGraphicsScene{ dataFlowGraphModel, &window };
+    QtNodes::DataFlowGraphModel graph{ registry };
+    QtNodes::DataFlowGraphicsScene* scene = new QtNodes::DataFlowGraphicsScene{ graph, &window };
     QtNodes::GraphicsView* view = new QtNodes::GraphicsView{ scene };
+
+    graph.addNode(AudioOutputNode{}.name());
 
     QVBoxLayout* layout = new QVBoxLayout{ &window };
     layout->addWidget(view);
