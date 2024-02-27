@@ -1,41 +1,41 @@
-#include "audiooutputnode.h"
+#include "audiooutput.h"
 
-AudioOutputNode::AudioOutputNode() {
+AudioOutput::AudioOutput() {
     m_bufferData = std::make_shared<BufferData>();
     m_bufferData->setAll(0.0f);
 
     m_playButton = new QPushButton("Play");
-    connect(m_playButton, &QPushButton::clicked, this, &AudioOutputNode::playButtonClicked);
+    connect(m_playButton, &QPushButton::clicked, this, &AudioOutput::playButtonClicked);
 
     initializePortAudio();
 }
 
-AudioOutputNode::~AudioOutputNode() {
+AudioOutput::~AudioOutput() {
     cleanupPortAudio();
 }
 
-QString AudioOutputNode::caption() const {
+QString AudioOutput::caption() const {
     return QStringLiteral("Audio Output");
 }
 
-QString AudioOutputNode::name() const {
-    return QStringLiteral("AudioOutputNode");
+QString AudioOutput::name() const {
+    return QStringLiteral("AudioOutput");
 }
 
-bool AudioOutputNode::captionVisible() const {
+bool AudioOutput::captionVisible() const {
     return true;
 }
 
-unsigned int AudioOutputNode::nPorts(QtNodes::PortType portType) const {
+unsigned int AudioOutput::nPorts(QtNodes::PortType portType) const {
     if (portType == QtNodes::PortType::In) return 1;
     return 0;
 }
 
-QtNodes::NodeDataType AudioOutputNode::dataType(QtNodes::PortType, QtNodes::PortIndex) const {
+QtNodes::NodeDataType AudioOutput::dataType(QtNodes::PortType, QtNodes::PortIndex) const {
     return BufferData{}.type();
 }
 
-void AudioOutputNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) {
+void AudioOutput::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) {
     if (auto inputData = std::dynamic_pointer_cast<BufferData>(data)) {
         for(size_t i = 0; i < BUFFERSIZE; i++) {
             m_bufferData->m_buffer[i] = inputData->m_buffer[i];
@@ -43,29 +43,29 @@ void AudioOutputNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes
     }
 }
 
-std::shared_ptr<QtNodes::NodeData> AudioOutputNode::outData(QtNodes::PortIndex) {
+std::shared_ptr<QtNodes::NodeData> AudioOutput::outData(QtNodes::PortIndex) {
     return m_bufferData;
 }
 
-QWidget* AudioOutputNode::embeddedWidget() {
+QWidget* AudioOutput::embeddedWidget() {
     return m_playButton;
 }
 
-void AudioOutputNode::playButtonClicked() {
+void AudioOutput::playButtonClicked() {
     //Pa_StartStream(m_paStream);  // seg faults
 }
 
-int AudioOutputNode::paCallback(const void* inputBuffer, void* outputBuffer,
+int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
                                 unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo* timeInfo,
                                 PaStreamCallbackFlags statusFlags, void* userData) {
-    AudioOutputNode* audioOutputNode = static_cast<AudioOutputNode*>(userData);
+    AudioOutput* audioOutputNode = static_cast<AudioOutput*>(userData);
     float* buffer = audioOutputNode->m_bufferData->m_buffer;
     memcpy(outputBuffer, buffer, framesPerBuffer * sizeof(float));
 
     return paContinue;
 }
 
-void AudioOutputNode::initializePortAudio() {
+void AudioOutput::initializePortAudio() {
     Pa_Initialize();
 
     PaStreamParameters outputParameters;
@@ -82,14 +82,14 @@ void AudioOutputNode::initializePortAudio() {
         44100,
         paFramesPerBufferUnspecified,
         paNoFlag,
-        &AudioOutputNode::paCallback,
+        &AudioOutput::paCallback,
         this
     );
 
     //Pa_SetStreamFinishedCallback(m_paStream, nullptr);
 }
 
-void AudioOutputNode::cleanupPortAudio() {
+void AudioOutput::cleanupPortAudio() {
     Pa_StopStream(m_paStream);
     Pa_CloseStream(m_paStream);
     Pa_Terminate();

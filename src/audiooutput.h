@@ -1,5 +1,5 @@
-#ifndef AUDIOOUTPUTNODE_H
-#define AUDIOOUTPUTNODE_H
+#ifndef AUDIOOUTPUT_H
+#define AUDIOOUTPUT_H
 
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QPushButton>
@@ -8,12 +8,12 @@
 
 #include "bufferdata.h"
 
-class AudioOutputNode : public QtNodes::NodeDelegateModel {
+class AudioOutput : public QtNodes::NodeDelegateModel {
     Q_OBJECT
 
 public:
-    AudioOutputNode();
-    ~AudioOutputNode();
+    AudioOutput();
+    ~AudioOutput();
 
     QString caption() const override;
     QString name() const override;
@@ -22,10 +22,9 @@ public:
     unsigned int nPorts(QtNodes::PortType portType) const override;
     QtNodes::NodeDataType dataType(QtNodes::PortType, QtNodes::PortIndex) const override;
     void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override;
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override;
 
     QWidget* embeddedWidget() override;
-
-    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override;
 
 private:
     std::shared_ptr<BufferData> m_bufferData;
