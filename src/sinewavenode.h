@@ -4,7 +4,6 @@
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QLineEdit>
 #include <QtCore/QObject>
-#include <cmath>
 
 #include "bufferdata.h"
 
@@ -13,7 +12,6 @@ class SineWaveNode : public QtNodes::NodeDelegateModel {
 
 public:
     SineWaveNode();
-    ~SineWaveNode();
 
     QString caption() const override;
     QString name() const override;
@@ -21,8 +19,8 @@ public:
 
     unsigned int nPorts(QtNodes::PortType portType) const override;
     QtNodes::NodeDataType dataType(QtNodes::PortType, QtNodes::PortIndex) const override;
-    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override;
-    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex portIndex) override;
+    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) override;
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override;
 
     QWidget* embeddedWidget() override;
 
@@ -30,9 +28,8 @@ public:
 
 private:
     std::shared_ptr<BufferData> m_bufferData;
-    QLineEdit* m_lineEdit;
 
-    void generateSineWave();
+    void generateWave();
 };
 
 #endif

@@ -8,8 +8,6 @@ AudioOutputNode::AudioOutputNode() {
     connect(m_playButton, &QPushButton::clicked, this, &AudioOutputNode::playButtonClicked);
 
     initializePortAudio();
-
-
 }
 
 AudioOutputNode::~AudioOutputNode() {
@@ -33,17 +31,20 @@ unsigned int AudioOutputNode::nPorts(QtNodes::PortType portType) const {
     return 0;
 }
 
-QtNodes::NodeDataType AudioOutputNode::dataType(QtNodes::PortType portType, QtNodes::PortIndex portIndex) const {
-    if (portType == QtNodes::PortType::In && portIndex == 0) return BufferData{}.type();
-    return QtNodes::NodeDataType{};
+QtNodes::NodeDataType AudioOutputNode::dataType(QtNodes::PortType, QtNodes::PortIndex) const {
+    return BufferData{}.type();
 }
 
-void AudioOutputNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) {
-    if (portIndex == 0) {
-        if (auto inputData = std::dynamic_pointer_cast<BufferData>(data)) {
-            m_bufferData->setAll(inputData->m_buffer[0]);
+void AudioOutputNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) {
+    if (auto inputData = std::dynamic_pointer_cast<BufferData>(data)) {
+        for(size_t i = 0; i < BUFFERSIZE; i++) {
+            m_bufferData->m_buffer[i] = inputData->m_buffer[i];
         }
     }
+}
+
+std::shared_ptr<QtNodes::NodeData> AudioOutputNode::outData(QtNodes::PortIndex) {
+    return m_bufferData;
 }
 
 QWidget* AudioOutputNode::embeddedWidget() {
@@ -74,14 +75,16 @@ void AudioOutputNode::initializePortAudio() {
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
 
-    Pa_OpenStream(&m_paStream,
-                  nullptr,
-                  &outputParameters,
-                  44100,
-                  paFramesPerBufferUnspecified,
-                  paNoFlag,
-                  &AudioOutputNode::paCallback,
-                  this);
+    Pa_OpenStream(
+        &m_paStream,
+        nullptr,
+        &outputParameters,
+        44100,
+        paFramesPerBufferUnspecified,
+        paNoFlag,
+        &AudioOutputNode::paCallback,
+        this
+    );
 
     //Pa_SetStreamFinishedCallback(m_paStream, nullptr);
 }

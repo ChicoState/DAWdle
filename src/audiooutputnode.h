@@ -4,7 +4,7 @@
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QPushButton>
 #include <QtCore/QObject>
-#include <portaudio.h>
+#include <portaudio/portaudio.h>
 
 #include "bufferdata.h"
 
@@ -25,9 +25,7 @@ public:
 
     QWidget* embeddedWidget() override;
 
-    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex portIndex) override{
-        return m_bufferData;
-    }
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override;
 
 private:
     std::shared_ptr<BufferData> m_bufferData;

@@ -40,7 +40,7 @@ QtNodes::NodeDataType DecimalInput::dataType(QtNodes::PortType, QtNodes::PortInd
 
 void DecimalInput::setInData(std::shared_ptr<QtNodes::NodeData>, QtNodes::PortIndex) {}
 
-std::shared_ptr<QtNodes::NodeData> DecimalInput::outData(QtNodes::PortIndex portIndex) {
+std::shared_ptr<QtNodes::NodeData> DecimalInput::outData(QtNodes::PortIndex) {
     return m_bufferData;
 }
 

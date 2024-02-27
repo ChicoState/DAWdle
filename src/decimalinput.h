@@ -21,7 +21,7 @@ class DecimalInput : public QtNodes::NodeDelegateModel {
         unsigned int nPorts(QtNodes::PortType portType) const override;
         QtNodes::NodeDataType dataType(QtNodes::PortType, QtNodes::PortIndex) const override;
         void setInData(std::shared_ptr<QtNodes::NodeData>, QtNodes::PortIndex) override;
-        std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex portIndex) override;
+        std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override;
 
         QWidget* embeddedWidget() override;
 
