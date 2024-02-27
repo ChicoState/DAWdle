@@ -16,13 +16,12 @@ int main(int argc, char** argv) {
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Sources");
     registry->registerModel<SineWave>("Oscillators");
-    registry->registerModel<AudioOutput>("");
 
     QtNodes::DataFlowGraphModel graph{ registry };
     QtNodes::DataFlowGraphicsScene* scene = new QtNodes::DataFlowGraphicsScene{ graph, &window };
     QtNodes::GraphicsView* view = new QtNodes::GraphicsView{ scene };
     
-    graph.addNode(AudioOutput{}.name());
+    graph.addNode<AudioOutput>();
 
     QVBoxLayout* layout = new QVBoxLayout{ &window };
     layout->addWidget(view);

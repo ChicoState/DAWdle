@@ -1,17 +1,18 @@
 #include "audiooutput.h"
+#include <QDebug>
 
 AudioOutput::AudioOutput() {
+    qDebug() << "creating AudioOutput node";
     m_bufferData = std::make_shared<BufferData>();
     m_bufferData->setAll(0.0f);
 
     m_playButton = new QPushButton("Play");
     connect(m_playButton, &QPushButton::clicked, this, &AudioOutput::playButtonClicked);
-
     initializePortAudio();
 }
 
 AudioOutput::~AudioOutput() {
-    cleanupPortAudio();
+    //cleanupPortAudio();
 }
 
 QString AudioOutput::caption() const {
@@ -52,7 +53,7 @@ QWidget* AudioOutput::embeddedWidget() {
 }
 
 void AudioOutput::playButtonClicked() {
-    //Pa_StartStream(m_paStream);  // seg faults
+    Pa_StartStream(m_paStream);
 }
 
 int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
@@ -61,7 +62,6 @@ int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
     AudioOutput* audioOutputNode = static_cast<AudioOutput*>(userData);
     float* buffer = audioOutputNode->m_bufferData->m_buffer;
     memcpy(outputBuffer, buffer, framesPerBuffer * sizeof(float));
-
     return paContinue;
 }
 
@@ -75,7 +75,7 @@ void AudioOutput::initializePortAudio() {
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
 
-    Pa_OpenStream(
+    qDebug() << Pa_OpenStream(
         &m_paStream,
         nullptr,
         &outputParameters,
@@ -86,7 +86,7 @@ void AudioOutput::initializePortAudio() {
         this
     );
 
-    //Pa_SetStreamFinishedCallback(m_paStream, nullptr);
+    Pa_SetStreamFinishedCallback(m_paStream, nullptr);
 }
 
 void AudioOutput::cleanupPortAudio() {
