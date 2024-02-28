@@ -72,7 +72,6 @@ void AudioOutput::initializePortAudio() {
     outputParameters.device = Pa_GetDefaultOutputDevice();
     outputParameters.channelCount = 1;
     outputParameters.sampleFormat = paFloat32;
-    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
 
     qDebug() << Pa_OpenStream(

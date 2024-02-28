@@ -10,12 +10,14 @@ SOURCES += \
     src/audiooutput.cpp \
     src/decimalinput.cpp \
     src/main.cpp \
+    src/mainwindow.cpp \
     src/sinewave.cpp
 
 HEADERS += \
     src/audiooutput.h \
     src/bufferdata.h \
     src/decimalinput.h \
+    src/mainwindow.h \
     src/sinewave.h
 
 FORMS +=
