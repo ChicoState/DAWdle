@@ -10,12 +10,14 @@ SOURCES += \
     src/audiooutputnode.cpp \
     src/decimalinput.cpp \
     src/main.cpp \
+    src/mainwindow.cpp \
     src/sinewavenode.cpp
 
 HEADERS += \
     src/audiooutputnode.h \
     src/bufferdata.h \
     src/decimalinput.h \
+    src/mainwindow.h \
     src/sinewavenode.h
 
 FORMS +=
