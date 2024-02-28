@@ -89,7 +89,7 @@ void AudioOutputNode::initializePortAudio() {
 }
 
 void AudioOutputNode::cleanupPortAudio() {
-    //Pa_StopStream(m_paStream);
-    //Pa_CloseStream(m_paStream);
-    //Pa_Terminate();
+    Pa_StopStream(m_paStream);
+    Pa_CloseStream(m_paStream);
+    Pa_Terminate();
 }
