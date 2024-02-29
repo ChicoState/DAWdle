@@ -45,7 +45,9 @@ QWidget* SineWave::embeddedWidget() {
 
 void SineWave::generateWave() {
     for (size_t i = 0; i < BUFFERSIZE; i++) {
-        m_bufferData->m_buffer[i] = std::sin(2.0f * M_PI * m_bufferData->m_buffer[i] * i / static_cast<float>(BUFFERSIZE));
+        float frequency = m_bufferData->m_buffer[i];
+        m_bufferData->m_buffer[i] = sinf(m_timesteps[frequency]);
+        m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
     }
     Q_EMIT dataUpdated(0);
 }

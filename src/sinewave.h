@@ -28,7 +28,7 @@ public:
 
 private:
     std::shared_ptr<BufferData> m_bufferData;
-
+    std::unordered_map<float, float> m_timesteps;
     void generateWave();
 };
 

@@ -3,6 +3,9 @@
 #include <QtGui/QDoubleValidator>
 
 DecimalInput::DecimalInput() {
+    m_timer = new QTimer(this);
+    m_timer->setTimerType(Qt::TimerType::PreciseTimer);
+
     m_lineEdit = new QLineEdit;
     m_lineEdit->setValidator(new QDoubleValidator);
     m_lineEdit->setMaximumSize(m_lineEdit->sizeHint());
@@ -11,10 +14,12 @@ DecimalInput::DecimalInput() {
     m_bufferData->setAll(0.0f);
 
     connect(m_lineEdit, &QLineEdit::textChanged, this, &DecimalInput::updateBufferData);
+    connect(m_timer, &QTimer::timeout, this, &DecimalInput::repropogateData);
 }
 
 DecimalInput::~DecimalInput() {
     delete m_lineEdit;
+    delete m_timer;
 }
 
 QString DecimalInput::caption() const {
@@ -51,5 +56,10 @@ QWidget* DecimalInput::embeddedWidget() {
 
 void DecimalInput::updateBufferData(const QString& value) {
     m_bufferData->setAll(value.toFloat());
+    m_timer->start(static_cast<double>(BUFFERSIZE) / SAMPLERATE * 1000);
+    Q_EMIT dataUpdated(0);
+}
+
+void DecimalInput::repropogateData() {
     Q_EMIT dataUpdated(0);
 }

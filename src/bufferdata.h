@@ -4,6 +4,7 @@
 #include <QtNodes/NodeData>
 
 #define BUFFERSIZE 1024
+#define SAMPLERATE 44100
 
 class BufferData : public QtNodes::NodeData {
     public:

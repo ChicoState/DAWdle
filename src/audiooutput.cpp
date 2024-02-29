@@ -12,7 +12,7 @@ AudioOutput::AudioOutput() {
 }
 
 AudioOutput::~AudioOutput() {
-    //cleanupPortAudio();
+    cleanupPortAudio();
 }
 
 QString AudioOutput::caption() const {

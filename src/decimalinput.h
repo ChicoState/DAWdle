@@ -4,6 +4,7 @@
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QLineEdit>
 #include <QtCore/QObject>
+#include <QtCore/QTimer>
 
 #include "bufferdata.h"
 
@@ -26,10 +27,12 @@ class DecimalInput : public QtNodes::NodeDelegateModel {
         QWidget* embeddedWidget() override;
 
         void updateBufferData(const QString& value);
+        void repropogateData();
 
     private:
         std::shared_ptr<BufferData> m_bufferData;
         QLineEdit* m_lineEdit;
+        QTimer* m_timer;
 };
 
 #endif
