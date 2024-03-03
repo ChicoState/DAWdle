@@ -4,11 +4,11 @@
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QLineEdit>
 #include <QtCore/QObject>
-#include <QtCore/QTimer>
 
 #include "bufferdata.h"
+#include "audioinput.h"
 
-class DecimalInput : public QtNodes::NodeDelegateModel {
+class DecimalInput : public QtNodes::NodeDelegateModel, AudioInput {
     Q_OBJECT
 
     public:
@@ -32,7 +32,8 @@ class DecimalInput : public QtNodes::NodeDelegateModel {
     private:
         std::shared_ptr<BufferData> m_bufferData;
         QLineEdit* m_lineEdit;
-        QTimer* m_timer;
+
+        void refreshStream() override;
 };
 
 #endif

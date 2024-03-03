@@ -27,7 +27,8 @@ public:
     void updateBufferData(const QString& value);
 
 private:
-    std::shared_ptr<BufferData> m_bufferData;
+    std::shared_ptr<BufferData> m_inBuffer;
+    std::shared_ptr<BufferData> m_outBuffer;
     std::unordered_map<float, float> m_timesteps;
     void generateWave();
 };

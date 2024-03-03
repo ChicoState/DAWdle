@@ -1,8 +1,7 @@
 #include "audiooutput.h"
-#include <QDebug>
+#include "audioinput.h"
 
 AudioOutput::AudioOutput() {
-    qDebug() << "creating AudioOutput node";
     m_bufferData = std::make_shared<BufferData>();
     m_bufferData->setAll(0.0f);
 
@@ -59,9 +58,15 @@ void AudioOutput::playButtonClicked() {
 int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
                                 unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo* timeInfo,
                                 PaStreamCallbackFlags statusFlags, void* userData) {
+    static unsigned long framesElapsed = 0;
     AudioOutput* audioOutputNode = static_cast<AudioOutput*>(userData);
     float* buffer = audioOutputNode->m_bufferData->m_buffer;
-    memcpy(outputBuffer, buffer, framesPerBuffer * sizeof(float));
+    memcpy(outputBuffer, buffer + framesElapsed, framesPerBuffer * sizeof(float));
+    framesElapsed += framesPerBuffer;
+    if(framesElapsed == BUFFERSIZE) {
+        AudioInput::refreshStreams();
+        framesElapsed = 0;
+    }
     return paContinue;
 }
 
@@ -74,11 +79,11 @@ void AudioOutput::initializePortAudio() {
     outputParameters.sampleFormat = paFloat32;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
 
-    qDebug() << Pa_OpenStream(
+    Pa_OpenStream(
         &m_paStream,
         nullptr,
         &outputParameters,
-        44100,
+        SAMPLERATE,
         paFramesPerBufferUnspecified,
         paNoFlag,
         &AudioOutput::paCallback,
