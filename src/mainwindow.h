@@ -5,6 +5,8 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QTabWidget>
+#include <QMenu>
 #include <memory>
 
 #include <QtNodes/DataFlowGraphModel>
@@ -15,6 +17,7 @@
 #include "decimalinput.h"
 #include "sinewavenode.h"
 #include "audiooutputnode.h"
+#include "arithmeticnode.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -22,19 +25,25 @@ class MainWindow : public QMainWindow {
 public:
     MainWindow();
 
-private:
+private slots:
+    void createDecimalNode();
+    void createSineWaveNode();
+    void createAudioOutputNode();
+    void createAddNode();
+    void createSubtractNode();
+    void createMultiplyNode();
+    void createDivideNode();
 
+private:
     template <typename NodeType>
     void createNode();
 
     QToolBar* toolbar;
+    QTabWidget* tabWidget;
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry;
     QtNodes::DataFlowGraphModel* graph;
     QtNodes::DataFlowGraphicsScene* scene;
     QtNodes::GraphicsView* view;
-    QAction* addDecimalButton;
-    QAction* addSineWaveButton;
-    QAction* addAudioOutputButton;
 };
 
 #endif // MAINWINDOW_H
