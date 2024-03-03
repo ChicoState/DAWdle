@@ -2,8 +2,14 @@
 #include "audioinput.h"
 
 AudioOutput::AudioOutput() {
-    m_bufferData = std::make_shared<BufferData>();
-    m_bufferData->setAll(0.0f);
+    m_bufferData[0] = std::make_shared<BufferData>();
+    m_bufferData[0]->setAll(0.0f);
+
+    m_bufferData[1] = std::make_shared<BufferData>();
+    m_bufferData[1]->setAll(0.0f);
+
+    m_needsAnotherBuffer = true;
+    m_currentBuffer = 1;
 
     m_playButton = new QPushButton("Play");
     connect(m_playButton, &QPushButton::clicked, this, &AudioOutput::playButtonClicked);
@@ -38,13 +44,22 @@ QtNodes::NodeDataType AudioOutput::dataType(QtNodes::PortType, QtNodes::PortInde
 void AudioOutput::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) {
     if (auto inputData = std::dynamic_pointer_cast<BufferData>(data)) {
         for(size_t i = 0; i < BUFFERSIZE; i++) {
-            m_bufferData->m_buffer[i] = inputData->m_buffer[i];
+            m_bufferData[abs(m_currentBuffer - 1)]->m_buffer[i] = inputData->m_buffer[i];
+        }
+    }
+    if(m_needsAnotherBuffer) {
+        if(m_currentBuffer == 0) {
+            m_needsAnotherBuffer = false;
+        }
+        else {
+            m_currentBuffer = 0;
+            AudioInput::refreshStreams();
         }
     }
 }
 
 std::shared_ptr<QtNodes::NodeData> AudioOutput::outData(QtNodes::PortIndex) {
-    return m_bufferData;
+    return nullptr;
 }
 
 QWidget* AudioOutput::embeddedWidget() {
@@ -60,12 +75,14 @@ int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
                                 PaStreamCallbackFlags statusFlags, void* userData) {
     static unsigned long framesElapsed = 0;
     AudioOutput* audioOutputNode = static_cast<AudioOutput*>(userData);
-    float* buffer = audioOutputNode->m_bufferData->m_buffer;
-    memcpy(outputBuffer, buffer + framesElapsed, framesPerBuffer * sizeof(float));
-    framesElapsed += framesPerBuffer;
-    if(framesElapsed == BUFFERSIZE) {
-        AudioInput::refreshStreams();
-        framesElapsed = 0;
+    for(size_t i = 0; i < framesPerBuffer; i++) {
+        if(framesElapsed == BUFFERSIZE) {
+            framesElapsed = 0;
+            audioOutputNode->m_currentBuffer = abs(audioOutputNode->m_currentBuffer - 1);
+            AudioInput::refreshStreams();
+        }
+        static_cast<float*>(outputBuffer)[i] = audioOutputNode->m_bufferData[audioOutputNode->m_currentBuffer]->m_buffer[framesElapsed];
+        framesElapsed++;
     }
     return paContinue;
 }

@@ -27,8 +27,10 @@ public:
     QWidget* embeddedWidget() override;
 
 private:
-    std::shared_ptr<BufferData> m_bufferData;
+    std::shared_ptr<BufferData> m_bufferData[2];
     QPushButton* m_playButton;
+    int m_currentBuffer;
+    bool m_needsAnotherBuffer;
 
     PaStream* m_paStream;
 
