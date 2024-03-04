@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "decimalinput.h"
-#include "sinewave.h"
+#include "wavenode.h"
 #include "audiooutput.h"
 
 MainWindow::MainWindow() {
@@ -12,6 +12,10 @@ MainWindow::MainWindow() {
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Sources");
     registry->registerModel<SineWave>("Oscillators");
+    registry->registerModel<SawWave>("Oscillators");
+    registry->registerModel<SquareWave>("Oscillators");
+    registry->registerModel<TriangleWave>("Oscillators");
+    registry->registerModel<NoiseWave>("Oscillators");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
@@ -32,14 +36,29 @@ MainWindow::MainWindow() {
     // Create toolbar actions
     addDecimalInputButton = toolbar->addAction("Add Decimal Input");
     addSineWaveButton = toolbar->addAction("Add Sine Wave");
+    addSawWaveButton = toolbar->addAction("Add Saw Wave");
+    addSquareWaveButton = toolbar->addAction("Add Square Wave");
+    addTriangleWaveButton = toolbar->addAction("Add Triangle Wave");
+    addNoiseWaveButton = toolbar->addAction("Add Noise Wave");
 
     // Connect toolbar actions to slots
     connect(addDecimalInputButton, &QAction::triggered, this, [this]() {
         createNode<DecimalInput>();
     });
-
     connect(addSineWaveButton, &QAction::triggered, this, [this]() {
         createNode<SineWave>();
+    });
+    connect(addSawWaveButton, &QAction::triggered, this, [this]() {
+        createNode<SawWave>();
+    });
+    connect(addSquareWaveButton, &QAction::triggered, this, [this]() {
+        createNode<SquareWave>();
+    });
+    connect(addTriangleWaveButton, &QAction::triggered, this, [this]() {
+        createNode<TriangleWave>();
+    });
+    connect(addNoiseWaveButton, &QAction::triggered, this, [this]() {
+        createNode<NoiseWave>();
     });
 
     // Set up the main window
