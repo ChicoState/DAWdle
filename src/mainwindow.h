@@ -12,11 +12,22 @@
 #include <QtNodes/GraphicsView>
 #include <QtNodes/NodeDelegateModelRegistry>
 
+#include "arithmeticnode.h"
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     MainWindow();
+
+private slots:
+    void createDecimalNode();
+    void createSineWave();
+    void createAudioOutput();
+    void createAddNode();
+    void createSubtractNode();
+    void createMultiplyNode();
+    void createDivideNode();
 
 private:
 
@@ -24,12 +35,11 @@ private:
     void createNode();
 
     QToolBar* toolbar;
+    QTabWidget* tabWidget;
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry;
     QtNodes::DataFlowGraphModel* graph;
     QtNodes::DataFlowGraphicsScene* scene;
     QtNodes::GraphicsView* view;
-    QAction* addDecimalInputButton;
-    QAction* addSineWaveButton;
 };
 
 #endif // MAINWINDOW_H

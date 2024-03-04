@@ -8,10 +8,18 @@ MainWindow::MainWindow() {
     toolbar = new QToolBar(this);
     addToolBar(toolbar);
 
+    // Create a tab widget
+    tabWidget = new QTabWidget(this);
+
     // Register node models
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
-    registry->registerModel<DecimalInput>("Sources");
-    registry->registerModel<SineWave>("Oscillators");
+    registry->registerModel<DecimalInput>("Input");
+    registry->registerModel<SineWave>("Audio Generation");
+    registry->registerModel<AddNode>("Arithmetic");
+    registry->registerModel<SubtractNode>("Arithmetic");
+    registry->registerModel<MultiplyNode>("Arithmetic");
+    registry->registerModel<DivideNode>("Arithmetic");
+    registry->registerModel<AudioOutput>("Audio Generation");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
@@ -23,24 +31,31 @@ MainWindow::MainWindow() {
     // Add an initial node to the graph
     graph->addNode<AudioOutput>();
 
+    // Create menu items
+    QMenu* inputMenu = new QMenu("Input", this);
+    inputMenu->addAction("Add Decimal", this, SLOT(createDecimalNode()));
+
+    QMenu* audioMenu = new QMenu("Audio Generation", this);
+    audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWaveNode()));
+    audioMenu->addAction("Add Audio Output", this, SLOT(createAudioOutputNode()));
+
+    QMenu* arithmeticMenu = new QMenu("Arithmetic", this);
+    arithmeticMenu->addAction("Add Addition Node", this, SLOT(createAddNode()));
+    arithmeticMenu->addAction("Add Subtraction Node", this, SLOT(createSubtractNode()));
+    arithmeticMenu->addAction("Add Multiply Node", this, SLOT(createMultiplyNode()));
+    arithmeticMenu->addAction("Add Divide Node", this, SLOT(createDivideNode()));
+
     // Set up the layout
     QVBoxLayout* layout = new QVBoxLayout;
+    layout->addWidget(tabWidget);
     layout->addWidget(view);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // Create toolbar actions
-    addDecimalInputButton = toolbar->addAction("Add Decimal Input");
-    addSineWaveButton = toolbar->addAction("Add Sine Wave");
-
-    // Connect toolbar actions to slots
-    connect(addDecimalInputButton, &QAction::triggered, this, [this]() {
-        createNode<DecimalInput>();
-    });
-
-    connect(addSineWaveButton, &QAction::triggered, this, [this]() {
-        createNode<SineWave>();
-    });
+    //Add menus to toolbar
+    toolbar->addAction(inputMenu->menuAction());
+    toolbar->addAction(audioMenu->menuAction());
+    toolbar->addAction(arithmeticMenu->menuAction());
 
     // Set up the main window
     setCentralWidget(new QWidget);
@@ -49,8 +64,42 @@ MainWindow::MainWindow() {
     showNormal();
 }
 
+// Define slot functions for menu actions
+void MainWindow::createDecimalNode() {
+    createNode<DecimalInput>();
+}
+
+void MainWindow::createSineWave() {
+    createNode<SineWave>();
+}
+
+void MainWindow::createAudioOutput() {
+    createNode<AudioOutput>();
+}
+
+void MainWindow::createAddNode() {
+    createNode<AddNode>();
+}
+
+void MainWindow::createSubtractNode() {
+    createNode<SubtractNode>();
+}
+
+void MainWindow::createMultiplyNode() {
+    createNode<MultiplyNode>();
+}
+
+void MainWindow::createDivideNode() {
+    createNode<DivideNode>();
+}
+
 template <typename NodeType>
 void MainWindow::createNode() {
-    graph->addNode(NodeType{}.name());
+    try {
+        graph->addNode(NodeType{}.name());
+        scene->update();
+    } catch (const std::exception& e) {
+        qDebug() << "Error creating node: " << e.what();
+    }
 }
 
