@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "decimalinput.h"
-#include "sinewave.h"
+#include "wavenode.h"
 #include "audiooutput.h"
 
 MainWindow::MainWindow() {
@@ -14,12 +14,17 @@ MainWindow::MainWindow() {
     // Register node models
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Input");
-    registry->registerModel<SineWave>("Audio Generation");
-    registry->registerModel<AddNode>("Arithmetic");
+    registry->registerModel<AdditionNode>("Arithmetic");
     registry->registerModel<SubtractNode>("Arithmetic");
     registry->registerModel<MultiplyNode>("Arithmetic");
     registry->registerModel<DivideNode>("Arithmetic");
     registry->registerModel<AudioOutput>("Audio Generation");
+    registry->registerModel<DecimalInput>("Sources");
+    registry->registerModel<SineWave>("Oscillators");
+    registry->registerModel<SawWave>("Oscillators");
+    registry->registerModel<SquareWave>("Oscillators");
+    registry->registerModel<TriangleWave>("Oscillators");
+    registry->registerModel<NoiseWave>("Oscillators");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
@@ -38,9 +43,13 @@ MainWindow::MainWindow() {
     QMenu* audioMenu = new QMenu("Audio Generation", this);
     audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWaveNode()));
     audioMenu->addAction("Add Audio Output", this, SLOT(createAudioOutputNode()));
+    audioMenu->addAction("Add Saw Wave", this, SLOT(createSawWave()));
+    audioMenu->addAction("Add Square Wave", this, SLOT(createSquareWave()));
+    audioMenu->addAction("Add Triangle Wave", this, SLOT(createTriangleWave()));
+    audioMenu->addAction("Add Noise Wave", this, SLOT(createNoiseWave()));
 
     QMenu* arithmeticMenu = new QMenu("Arithmetic", this);
-    arithmeticMenu->addAction("Add Addition Node", this, SLOT(createAddNode()));
+    arithmeticMenu->addAction("Add Addition Node", this, SLOT(createAdditionNode()));
     arithmeticMenu->addAction("Add Subtraction Node", this, SLOT(createSubtractNode()));
     arithmeticMenu->addAction("Add Multiply Node", this, SLOT(createMultiplyNode()));
     arithmeticMenu->addAction("Add Divide Node", this, SLOT(createDivideNode()));
@@ -56,6 +65,13 @@ MainWindow::MainWindow() {
     toolbar->addAction(inputMenu->menuAction());
     toolbar->addAction(audioMenu->menuAction());
     toolbar->addAction(arithmeticMenu->menuAction());
+
+    // Create toolbar actions
+    //addSineWaveButton = toolbar->addAction("Add Sine Wave");
+    //addSawWaveButton = toolbar->addAction("Add Saw Wave");
+    //addSquareWaveButton = toolbar->addAction("Add Square Wave");
+    //addTriangleWaveButton = toolbar->addAction("Add Triangle Wave");
+    //addNoiseWaveButton = toolbar->addAction("Add Noise Wave");
 
     // Set up the main window
     setCentralWidget(new QWidget);
@@ -73,12 +89,28 @@ void MainWindow::createSineWave() {
     createNode<SineWave>();
 }
 
+void MainWindow::createSawWave() {
+    createNode<SawWave>();
+}
+
+void MainWindow::createSquareWave() {
+    createNode<SquareWave>();
+}
+
+void MainWindow::createTriangleWave() {
+    createNode<TriangleWave>();
+}
+
+void MainWindow::createNoiseWave() {
+    createNode<NoiseWave>();
+}
+
 void MainWindow::createAudioOutput() {
     createNode<AudioOutput>();
 }
 
-void MainWindow::createAddNode() {
-    createNode<AddNode>();
+void MainWindow::createAdditionNode() {
+    createNode<AdditionNode>();
 }
 
 void MainWindow::createSubtractNode() {

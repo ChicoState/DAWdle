@@ -23,8 +23,12 @@ public:
 private slots:
     void createDecimalNode();
     void createSineWave();
+    void createSawWave();
+    void createSquareWave();
+    void createTriangleWave();
+    void createNoiseWave();
     void createAudioOutput();
-    void createAddNode();
+    void createAdditionNode();
     void createSubtractNode();
     void createMultiplyNode();
     void createDivideNode();

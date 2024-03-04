@@ -1,21 +1,19 @@
-// arithmeticnode.cpp
 #include "arithmeticnode.h"
 #include <QDebug>
-#include <QtGui/QDoubleValidator>
 
-ArithmeticNode::ArithmeticNode(const QString& operationName) : m_operationName(operationName) {
-    m_bufferData = std::make_shared<BufferData>();
-    m_bufferData->setAll(0.0);
-    m_bufferData->m_buffer[0] = NAN;
-    m_bufferData->m_buffer[1] = NAN;
+ArithmeticNode::ArithmeticNode() {
+    // Initialize buffer and result buffer
+    _buffer1 = std::make_shared<BufferData>();
+    _buffer2 = std::make_shared<BufferData>();
+    _resultBuffer = std::make_shared<BufferData>();
+
+    // Assuming setAll is a function in BufferData to set all elements to a given value
+    _buffer1->setAll(0.0f);
+    _buffer2->setAll(0.0f);
+    _resultBuffer->setAll(0.0f);
 }
 
-QString ArithmeticNode::caption() const {
-    return m_operationName + " Node";
-}
-
-QString ArithmeticNode::name() const {
-    return m_operationName + "Node";
+ArithmeticNode::~ArithmeticNode() {
 }
 
 bool ArithmeticNode::captionVisible() const {
@@ -23,8 +21,9 @@ bool ArithmeticNode::captionVisible() const {
 }
 
 unsigned int ArithmeticNode::nPorts(QtNodes::PortType portType) const {
-    if (portType == QtNodes::PortType::Out) return 1;
-    return 2;  // Two input ports
+    if (portType == QtNodes::PortType::In) return 2;
+    else if (portType == QtNodes::PortType::Out) return 1;
+    return 0;
 }
 
 QtNodes::NodeDataType ArithmeticNode::dataType(QtNodes::PortType, QtNodes::PortIndex) const {
@@ -32,73 +31,26 @@ QtNodes::NodeDataType ArithmeticNode::dataType(QtNodes::PortType, QtNodes::PortI
 }
 
 void ArithmeticNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) {
-        if (auto inputData = std::dynamic_pointer_cast<BufferData>(data)) {
-            m_bufferData->m_buffer[portIndex] = inputData->m_buffer[0];
+    auto bufferData = std::dynamic_pointer_cast<BufferData>(data);
 
-            // Perform the operation between elements with the same indices
-            float result = performOperation(m_bufferData->m_buffer[0], m_bufferData->m_buffer[1]);
-
-            // Set the result in the corresponding index of the output buffer
-            m_bufferData->m_buffer[portIndex] = result;
-            Q_EMIT dataUpdated(0);
+    if (!bufferData) {
+        Q_EMIT dataInvalidated(portIndex);
+        return;
     }
+
+    if (portIndex == 0) {
+        _buffer1 = bufferData;
+    } else if (portIndex == 1) {
+        _buffer2 = bufferData;
+    }
+
+    compute();
 }
 
-
 std::shared_ptr<QtNodes::NodeData> ArithmeticNode::outData(QtNodes::PortIndex) {
-    return m_bufferData;
+    return _resultBuffer;
 }
 
 QWidget* ArithmeticNode::embeddedWidget() {
     return nullptr;
 }
-
-AddNode::AddNode() : ArithmeticNode("Addition") {}
-
-float AddNode::performOperation(float operand1, float operand2) const {
-    if(isnan(operand1)){
-        return operand2;
-    }
-    else if(isnan(operand2)){
-        return operand1;
-    }
-    return operand1 + operand2;
-}
-
-
-SubtractNode::SubtractNode() : ArithmeticNode("Subtraction") {}
-
-float SubtractNode::performOperation(float operand1, float operand2) const {
-    if(isnan(operand1)){
-        return operand2;
-    }
-    else if(isnan(operand2)){
-        return operand1;
-    }
-    return operand1 - operand2;
-}
-
-MultiplyNode::MultiplyNode() : ArithmeticNode("Multiply") {}
-
-float MultiplyNode::performOperation(float operand1, float operand2) const {
-    if(isnan(operand1)){
-        return operand2;
-    }
-    else if(isnan(operand2)){
-        return operand1;
-    }
-    return operand1 * operand2;
-}
-
-DivideNode::DivideNode() : ArithmeticNode("Divide") {}
-
-float DivideNode::performOperation(float operand1, float operand2) const {
-    if(isnan(operand1)){
-        return operand2;
-    }
-    else if(isnan(operand2)){
-        return operand1;
-    }
-    return operand1 / operand2;
-}
-
