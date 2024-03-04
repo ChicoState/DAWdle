@@ -38,8 +38,9 @@ public:
 
 protected:
     void compute() override {
-        _resultBuffer->m_buffer[0] = (_buffer1->m_buffer[0] + _buffer2->m_buffer[0]);
-        Q_EMIT dataUpdated(0);
+        for (int i = 0; i < BUFFERSIZE; i++){
+            _resultBuffer->m_buffer[i] = (_buffer1->m_buffer[i] + _buffer2->m_buffer[i]);
+        }
     }
 };
 
@@ -50,7 +51,9 @@ public:
 
 protected:
     void compute() override {
-        _resultBuffer->m_buffer[0] = (_buffer1->m_buffer[0] - _buffer2->m_buffer[0]);
+        for (int i = 0; i < BUFFERSIZE; i++){
+            _resultBuffer->m_buffer[i] = (_buffer1->m_buffer[i] - _buffer2->m_buffer[i]);
+        }
         Q_EMIT dataUpdated(0);
     }
 };
@@ -62,8 +65,9 @@ public:
 
 protected:
     void compute() override {
-        _resultBuffer->m_buffer[0] = (_buffer1->m_buffer[0] * _buffer2->m_buffer[0]);
-        Q_EMIT dataUpdated(0);
+        for (int i = 0; i < BUFFERSIZE; i++){
+            _resultBuffer->m_buffer[i] = (_buffer1->m_buffer[i] * _buffer2->m_buffer[i]);
+        }        Q_EMIT dataUpdated(0);
     }
 };
 
@@ -74,11 +78,12 @@ public:
 
 protected:
     void compute() override {
-        if (_buffer2->m_buffer[0] != 0) {
-            _resultBuffer->m_buffer[0] = (_buffer1->m_buffer[0] + _buffer2->m_buffer[0]);
-        } else {
-            _resultBuffer->m_buffer[0] = 0;
-        }
+        for (int i = 0; i < BUFFERSIZE; i++){
+            if (_buffer2->m_buffer[i] != 0) {
+                _resultBuffer->m_buffer[i] = (_buffer1->m_buffer[i] + _buffer2->m_buffer[i]);
+            } else {
+                _resultBuffer->m_buffer[i] = 0;
+            }        }
         Q_EMIT dataUpdated(0);
     }
 };
