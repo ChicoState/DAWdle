@@ -12,7 +12,7 @@ SOURCES += \
     src/decimalinput.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
-    src/sinewave.cpp
+    src/wavenode.cpp
 
 HEADERS += \
     src/audioinput.h \
@@ -20,7 +20,7 @@ HEADERS += \
     src/bufferdata.h \
     src/decimalinput.h \
     src/mainwindow.h \
-    src/sinewave.h
+    src/wavenode.h
 
 FORMS +=
 
