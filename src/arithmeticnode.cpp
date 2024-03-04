@@ -74,18 +74,18 @@ void AdditionNode::compute() {
 
 void SubtractionNode::compute() {
     for (int i = 0; i < BUFFERSIZE; i++){
-        m_outBuffer->m_buffer[i] = (m_inBuffer1->m_buffer[i] + m_inBuffer2->m_buffer[i]);
+        m_outBuffer->m_buffer[i] = (m_inBuffer1->m_buffer[i] - m_inBuffer2->m_buffer[i]);
     }
 }
 
 void MultiplicationNode::compute() {
     for (int i = 0; i < BUFFERSIZE; i++){
-        m_outBuffer->m_buffer[i] = (m_inBuffer1->m_buffer[i] + m_inBuffer2->m_buffer[i]);
+        m_outBuffer->m_buffer[i] = (m_inBuffer1->m_buffer[i] * m_inBuffer2->m_buffer[i]);
     }
 }
 
 void DivisionNode::compute() {
     for (int i = 0; i < BUFFERSIZE; i++){
-        m_outBuffer->m_buffer[i] = (m_inBuffer1->m_buffer[i] + m_inBuffer2->m_buffer[i]);
+        m_outBuffer->m_buffer[i] = (m_inBuffer1->m_buffer[i] / m_inBuffer2->m_buffer[i]);
     }
 }
