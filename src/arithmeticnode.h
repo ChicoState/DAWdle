@@ -80,7 +80,7 @@ protected:
     void compute() override {
         for (int i = 0; i < BUFFERSIZE; i++){
             if (_buffer2->m_buffer[i] != 0) {
-                _resultBuffer->m_buffer[i] = (_buffer1->m_buffer[i] + _buffer2->m_buffer[i]);
+                _resultBuffer->m_buffer[i] = (_buffer1->m_buffer[i] / _buffer2->m_buffer[i]);
             } else {
                 _resultBuffer->m_buffer[i] = 0;
             }        }
