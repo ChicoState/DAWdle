@@ -30,6 +30,10 @@ private:
     QtNodes::GraphicsView* view;
     QAction* addDecimalInputButton;
     QAction* addSineWaveButton;
+    QAction* addSawWaveButton;
+    QAction* addSquareWaveButton;
+    QAction* addTriangleWaveButton;
+    QAction* addNoiseWaveButton;
 };
 
 #endif // MAINWINDOW_H
