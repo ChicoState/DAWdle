@@ -130,6 +130,58 @@ private:
     std::unordered_set<ConnectionId> _connectivity;
 
     mutable std::unordered_map<NodeId, NodeGeometryData> _nodeGeometryData;
+
+public:
+// be a little evil and modify library functionality to get around the node registry system
+// i don't really know what systems use the registry so hopefully it isn't important
+// otherwise this will be very bad and break many things :)
+    template<typename T>
+    NodeId addNode()
+    {
+        std::unique_ptr<NodeDelegateModel> model = std::make_unique<T>();
+
+        if (model) {
+            NodeId newId = newNodeId();
+
+            connect(model.get(),
+                    &NodeDelegateModel::dataUpdated,
+                    [newId, this](PortIndex const portIndex) {
+                        onOutPortDataUpdated(newId, portIndex);
+                    });
+
+            connect(model.get(),
+                    &NodeDelegateModel::portsAboutToBeDeleted,
+                    this,
+                    [newId, this](PortType const portType, PortIndex const first, PortIndex const last) {
+                        portsAboutToBeDeleted(newId, portType, first, last);
+                    });
+
+            connect(model.get(),
+                    &NodeDelegateModel::portsDeleted,
+                    this,
+                    &DataFlowGraphModel::portsDeleted);
+
+            connect(model.get(),
+                    &NodeDelegateModel::portsAboutToBeInserted,
+                    this,
+                    [newId, this](PortType const portType, PortIndex const first, PortIndex const last) {
+                        portsAboutToBeInserted(newId, portType, first, last);
+                    });
+
+            connect(model.get(),
+                    &NodeDelegateModel::portsInserted,
+                    this,
+                    &DataFlowGraphModel::portsInserted);
+
+            _models[newId] = std::move(model);
+
+            Q_EMIT nodeCreated(newId);
+
+            return newId;
+        }
+
+        return InvalidNodeId;
+    }
 };
 
 } // namespace QtNodes

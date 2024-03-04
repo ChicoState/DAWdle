@@ -1,5 +1,5 @@
-#ifndef SINEWAVENODE_H
-#define SINEWAVENODE_H
+#ifndef SINEWAVE_H
+#define SINEWAVE_H
 
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QLineEdit>
@@ -7,11 +7,11 @@
 
 #include "bufferdata.h"
 
-class SineWaveNode : public QtNodes::NodeDelegateModel {
+class SineWave : public QtNodes::NodeDelegateModel {
     Q_OBJECT
 
 public:
-    SineWaveNode();
+    SineWave();
 
     QString caption() const override;
     QString name() const override;
@@ -27,8 +27,9 @@ public:
     void updateBufferData(const QString& value);
 
 private:
-    std::shared_ptr<BufferData> m_bufferData;
-
+    std::shared_ptr<BufferData> m_inBuffer;
+    std::shared_ptr<BufferData> m_outBuffer;
+    std::unordered_map<float, float> m_timesteps;
     void generateWave();
 };
 

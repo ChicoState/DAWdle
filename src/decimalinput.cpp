@@ -53,3 +53,7 @@ void DecimalInput::updateBufferData(const QString& value) {
     m_bufferData->setAll(value.toFloat());
     Q_EMIT dataUpdated(0);
 }
+
+void DecimalInput::refreshStream() {
+    Q_EMIT dataUpdated(0);
+}

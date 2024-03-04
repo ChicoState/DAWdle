@@ -7,18 +7,20 @@ CONFIG += c++17
 DEFINES += NODE_EDITOR_SHARED
 
 SOURCES += \
-    src/audiooutputnode.cpp \
+    src/audioinput.cpp \
+    src/audiooutput.cpp \
     src/decimalinput.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
-    src/sinewavenode.cpp
+    src/sinewave.cpp
 
 HEADERS += \
-    src/audiooutputnode.h \
+    src/audioinput.h \
+    src/audiooutput.h \
     src/bufferdata.h \
     src/decimalinput.h \
     src/mainwindow.h \
-    src/sinewavenode.h
+    src/sinewave.h
 
 FORMS +=
 

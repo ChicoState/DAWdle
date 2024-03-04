@@ -12,10 +12,6 @@
 #include <QtNodes/GraphicsView>
 #include <QtNodes/NodeDelegateModelRegistry>
 
-#include "decimalinput.h"
-#include "sinewavenode.h"
-#include "audiooutputnode.h"
-
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -32,9 +28,8 @@ private:
     QtNodes::DataFlowGraphModel* graph;
     QtNodes::DataFlowGraphicsScene* scene;
     QtNodes::GraphicsView* view;
-    QAction* addDecimalButton;
+    QAction* addDecimalInputButton;
     QAction* addSineWaveButton;
-    QAction* addAudioOutputButton;
 };
 
 #endif // MAINWINDOW_H

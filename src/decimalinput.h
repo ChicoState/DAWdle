@@ -6,8 +6,9 @@
 #include <QtCore/QObject>
 
 #include "bufferdata.h"
+#include "audioinput.h"
 
-class DecimalInput : public QtNodes::NodeDelegateModel {
+class DecimalInput : public QtNodes::NodeDelegateModel, AudioInput {
     Q_OBJECT
 
     public:
@@ -26,10 +27,13 @@ class DecimalInput : public QtNodes::NodeDelegateModel {
         QWidget* embeddedWidget() override;
 
         void updateBufferData(const QString& value);
+        void repropogateData();
 
     private:
         std::shared_ptr<BufferData> m_bufferData;
         QLineEdit* m_lineEdit;
+
+        void refreshStream() override;
 };
 
 #endif
