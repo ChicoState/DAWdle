@@ -8,8 +8,17 @@ MainWindow::MainWindow() {
     toolbar = new QToolBar(this);
     addToolBar(toolbar);
 
+    // Create a tab widget
+    tabWidget = new QTabWidget(this);
+
     // Register node models
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
+    registry->registerModel<DecimalInput>("Input");
+    registry->registerModel<AdditionNode>("Arithmetic");
+    registry->registerModel<SubtractNode>("Arithmetic");
+    registry->registerModel<MultiplyNode>("Arithmetic");
+    registry->registerModel<DivideNode>("Arithmetic");
+    registry->registerModel<AudioOutput>("Audio Generation");
     registry->registerModel<DecimalInput>("Sources");
     registry->registerModel<SineWave>("Oscillators");
     registry->registerModel<SawWave>("Oscillators");
@@ -27,39 +36,42 @@ MainWindow::MainWindow() {
     // Add an initial node to the graph
     graph->addNode<AudioOutput>();
 
+    // Create menu items
+    QMenu* inputMenu = new QMenu("Input", this);
+    inputMenu->addAction("Add Decimal", this, SLOT(createDecimalNode()));
+
+    QMenu* audioMenu = new QMenu("Audio Generation", this);
+    audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWaveNode()));
+    audioMenu->addAction("Add Audio Output", this, SLOT(createAudioOutputNode()));
+    audioMenu->addAction("Add Saw Wave", this, SLOT(createSawWave()));
+    audioMenu->addAction("Add Square Wave", this, SLOT(createSquareWave()));
+    audioMenu->addAction("Add Triangle Wave", this, SLOT(createTriangleWave()));
+    audioMenu->addAction("Add Noise Wave", this, SLOT(createNoiseWave()));
+
+    QMenu* arithmeticMenu = new QMenu("Arithmetic", this);
+    arithmeticMenu->addAction("Add Addition Node", this, SLOT(createAdditionNode()));
+    arithmeticMenu->addAction("Add Subtraction Node", this, SLOT(createSubtractNode()));
+    arithmeticMenu->addAction("Add Multiply Node", this, SLOT(createMultiplyNode()));
+    arithmeticMenu->addAction("Add Divide Node", this, SLOT(createDivideNode()));
+
     // Set up the layout
     QVBoxLayout* layout = new QVBoxLayout;
+    layout->addWidget(tabWidget);
     layout->addWidget(view);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // Create toolbar actions
-    addDecimalInputButton = toolbar->addAction("Add Decimal Input");
-    addSineWaveButton = toolbar->addAction("Add Sine Wave");
-    addSawWaveButton = toolbar->addAction("Add Saw Wave");
-    addSquareWaveButton = toolbar->addAction("Add Square Wave");
-    addTriangleWaveButton = toolbar->addAction("Add Triangle Wave");
-    addNoiseWaveButton = toolbar->addAction("Add Noise Wave");
+    //Add menus to toolbar
+    toolbar->addAction(inputMenu->menuAction());
+    toolbar->addAction(audioMenu->menuAction());
+    toolbar->addAction(arithmeticMenu->menuAction());
 
-    // Connect toolbar actions to slots
-    connect(addDecimalInputButton, &QAction::triggered, this, [this]() {
-        createNode<DecimalInput>();
-    });
-    connect(addSineWaveButton, &QAction::triggered, this, [this]() {
-        createNode<SineWave>();
-    });
-    connect(addSawWaveButton, &QAction::triggered, this, [this]() {
-        createNode<SawWave>();
-    });
-    connect(addSquareWaveButton, &QAction::triggered, this, [this]() {
-        createNode<SquareWave>();
-    });
-    connect(addTriangleWaveButton, &QAction::triggered, this, [this]() {
-        createNode<TriangleWave>();
-    });
-    connect(addNoiseWaveButton, &QAction::triggered, this, [this]() {
-        createNode<NoiseWave>();
-    });
+    // Create toolbar actions
+    //addSineWaveButton = toolbar->addAction("Add Sine Wave");
+    //addSawWaveButton = toolbar->addAction("Add Saw Wave");
+    //addSquareWaveButton = toolbar->addAction("Add Square Wave");
+    //addTriangleWaveButton = toolbar->addAction("Add Triangle Wave");
+    //addNoiseWaveButton = toolbar->addAction("Add Noise Wave");
 
     // Set up the main window
     setCentralWidget(new QWidget);
@@ -68,8 +80,58 @@ MainWindow::MainWindow() {
     showNormal();
 }
 
+// Define slot functions for menu actions
+void MainWindow::createDecimalNode() {
+    createNode<DecimalInput>();
+}
+
+void MainWindow::createSineWave() {
+    createNode<SineWave>();
+}
+
+void MainWindow::createSawWave() {
+    createNode<SawWave>();
+}
+
+void MainWindow::createSquareWave() {
+    createNode<SquareWave>();
+}
+
+void MainWindow::createTriangleWave() {
+    createNode<TriangleWave>();
+}
+
+void MainWindow::createNoiseWave() {
+    createNode<NoiseWave>();
+}
+
+void MainWindow::createAudioOutput() {
+    createNode<AudioOutput>();
+}
+
+void MainWindow::createAdditionNode() {
+    createNode<AdditionNode>();
+}
+
+void MainWindow::createSubtractNode() {
+    createNode<SubtractNode>();
+}
+
+void MainWindow::createMultiplyNode() {
+    createNode<MultiplyNode>();
+}
+
+void MainWindow::createDivideNode() {
+    createNode<DivideNode>();
+}
+
 template <typename NodeType>
 void MainWindow::createNode() {
-    graph->addNode(NodeType{}.name());
+    try {
+        graph->addNode(NodeType{}.name());
+        scene->update();
+    } catch (const std::exception& e) {
+        qDebug() << "Error creating node: " << e.what();
+    }
 }
 
