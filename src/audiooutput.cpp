@@ -95,6 +95,7 @@ void AudioOutput::initializePortAudio() {
     outputParameters.channelCount = 1;
     outputParameters.sampleFormat = paFloat32;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
 
     Pa_OpenStream(
         &m_paStream,
