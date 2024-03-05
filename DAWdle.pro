@@ -22,6 +22,7 @@ HEADERS += \
     src/bufferdata.h \
     src/decimalinput.h \
     src/mainwindow.h \
+    src/util.h \
     src/wavenode.h
 
 FORMS +=
