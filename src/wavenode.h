@@ -11,10 +11,10 @@ class WaveNode : public QtNodes::NodeDelegateModel {
     Q_OBJECT
 
 public:
-    WaveNode();
+    WaveNode(const char* name);
 
-    QString caption() const override = 0;
-    QString name() const override = 0;
+    QString caption() const override;
+    QString name() const override;
     bool captionVisible() const override;
 
     unsigned int nPorts(QtNodes::PortType portType) const override;
@@ -24,55 +24,51 @@ public:
 
     QWidget* embeddedWidget() override;
 
-    void updateBufferData(const QString& value); // why is this here?
-
 protected:
     std::shared_ptr<BufferData> m_inBuffer;
     std::shared_ptr<BufferData> m_outBuffer;
     std::unordered_map<float, float> m_timesteps;
 
     virtual void generateWave() = 0;
+
+private:
+    QString m_name;
 };
 
 
 class SineWave : public WaveNode {
-public:
-    QString name() const override;
-    QString caption() const override;
-private:
-    void generateWave() override;
+    public:
+        SineWave();
+    private:
+        void generateWave() override;
 };
 
 class SawWave : public WaveNode {
-public:
-    QString name() const override;
-    QString caption() const override;
-private:
-    void generateWave() override;
+    public:
+        SawWave();
+    private:
+        void generateWave() override;
 };
 
 class SquareWave : public WaveNode {
-public:
-    QString name() const override;
-    QString caption() const override;
-private:
-    void generateWave() override;
+    public:
+        SquareWave();
+    private:
+        void generateWave() override;
 };
 
 class TriangleWave : public WaveNode {
-public:
-    QString name() const override;
-    QString caption() const override;
-private:
-    void generateWave() override;
+    public:
+        TriangleWave();
+    private:
+        void generateWave() override;
 };
 
 class NoiseWave : public WaveNode {
-public:
-    QString name() const override;
-    QString caption() const override;
-private:
-    void generateWave() override;
+    public:
+        NoiseWave();
+    private:
+        void generateWave() override;
 };
 
 #endif // WAVENODE_H

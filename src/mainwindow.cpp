@@ -2,6 +2,7 @@
 #include "decimalinput.h"
 #include "wavenode.h"
 #include "audiooutput.h"
+#include "arithmeticnode.h"
 
 MainWindow::MainWindow() {
     // Create a toolbar
@@ -15,10 +16,9 @@ MainWindow::MainWindow() {
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Input");
     registry->registerModel<AdditionNode>("Arithmetic");
-    registry->registerModel<SubtractNode>("Arithmetic");
-    registry->registerModel<MultiplyNode>("Arithmetic");
-    registry->registerModel<DivideNode>("Arithmetic");
-    registry->registerModel<AudioOutput>("Audio Generation");
+    registry->registerModel<SubtractionNode>("Arithmetic");
+    registry->registerModel<MultiplicationNode>("Arithmetic");
+    registry->registerModel<DivisionNode>("Arithmetic");
     registry->registerModel<DecimalInput>("Sources");
     registry->registerModel<SineWave>("Oscillators");
     registry->registerModel<SawWave>("Oscillators");
@@ -41,8 +41,7 @@ MainWindow::MainWindow() {
     inputMenu->addAction("Add Decimal", this, SLOT(createDecimalNode()));
 
     QMenu* audioMenu = new QMenu("Audio Generation", this);
-    audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWaveNode()));
-    audioMenu->addAction("Add Audio Output", this, SLOT(createAudioOutputNode()));
+    audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWave()));
     audioMenu->addAction("Add Saw Wave", this, SLOT(createSawWave()));
     audioMenu->addAction("Add Square Wave", this, SLOT(createSquareWave()));
     audioMenu->addAction("Add Triangle Wave", this, SLOT(createTriangleWave()));
@@ -65,13 +64,6 @@ MainWindow::MainWindow() {
     toolbar->addAction(inputMenu->menuAction());
     toolbar->addAction(audioMenu->menuAction());
     toolbar->addAction(arithmeticMenu->menuAction());
-
-    // Create toolbar actions
-    //addSineWaveButton = toolbar->addAction("Add Sine Wave");
-    //addSawWaveButton = toolbar->addAction("Add Saw Wave");
-    //addSquareWaveButton = toolbar->addAction("Add Square Wave");
-    //addTriangleWaveButton = toolbar->addAction("Add Triangle Wave");
-    //addNoiseWaveButton = toolbar->addAction("Add Noise Wave");
 
     // Set up the main window
     setCentralWidget(new QWidget);
@@ -105,24 +97,20 @@ void MainWindow::createNoiseWave() {
     createNode<NoiseWave>();
 }
 
-void MainWindow::createAudioOutput() {
-    createNode<AudioOutput>();
-}
-
 void MainWindow::createAdditionNode() {
     createNode<AdditionNode>();
 }
 
 void MainWindow::createSubtractNode() {
-    createNode<SubtractNode>();
+    createNode<SubtractionNode>();
 }
 
 void MainWindow::createMultiplyNode() {
-    createNode<MultiplyNode>();
+    createNode<MultiplicationNode>();
 }
 
 void MainWindow::createDivideNode() {
-    createNode<DivideNode>();
+    createNode<DivisionNode>();
 }
 
 template <typename NodeType>

@@ -12,8 +12,6 @@
 #include <QtNodes/GraphicsView>
 #include <QtNodes/NodeDelegateModelRegistry>
 
-#include "arithmeticnode.h"
-
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -27,7 +25,6 @@ private slots:
     void createSquareWave();
     void createTriangleWave();
     void createNoiseWave();
-    void createAudioOutput();
     void createAdditionNode();
     void createSubtractNode();
     void createMultiplyNode();

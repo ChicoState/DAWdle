@@ -3,7 +3,7 @@
 #include <QDebug>
 #include <random>
 
-WaveNode::WaveNode() {
+WaveNode::WaveNode(const char* name) : m_name{ name } {
     m_inBuffer = std::make_shared<BufferData>();
     m_inBuffer->setAll(0.0f);
 
@@ -12,7 +12,11 @@ WaveNode::WaveNode() {
 }
 
 QString WaveNode::caption() const {
-    return QStringLiteral("Wave Oscillator");
+    return m_name + QStringLiteral(" Wave Oscillator");
+}
+
+QString WaveNode::name() const {
+    return m_name + QStringLiteral("WaveOscillator");
 }
 
 bool WaveNode::captionVisible() const {
@@ -33,6 +37,7 @@ void WaveNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortI
             m_inBuffer->m_buffer[i] = inputData->m_buffer[i];
         }
         generateWave();
+        Q_EMIT dataUpdated(0);
     }
 }
 
@@ -44,21 +49,12 @@ QWidget* WaveNode::embeddedWidget() {
     return nullptr;
 }
 
-
-
 // individual derived class stuff:
-
-QString SineWave::name() const { return QStringLiteral("SineWave"); }
-QString SawWave::name() const { return QStringLiteral("SawWave"); }
-QString SquareWave::name() const { return QStringLiteral("SquareWave"); }
-QString TriangleWave::name() const { return QStringLiteral("TriangleWave"); }
-QString NoiseWave::name() const { return QStringLiteral("NoiseWave"); }
-
-QString SineWave::caption() const { return QStringLiteral("Sine Wave Oscillator"); }
-QString SawWave::caption() const { return QStringLiteral("Saw Wave Oscillator"); }
-QString SquareWave::caption() const { return QStringLiteral("Square Wave Oscillator"); }
-QString TriangleWave::caption() const { return QStringLiteral("Triangle Wave Oscillator"); }
-QString NoiseWave::caption() const { return QStringLiteral("Noise Oscillator"); }
+SineWave::SineWave() : WaveNode{"Sine"} {}
+SawWave::SawWave() : WaveNode{"Saw"} {}
+SquareWave::SquareWave() : WaveNode{"Square"} {}
+TriangleWave::TriangleWave() : WaveNode{"Triangle"} {}
+NoiseWave::NoiseWave() : WaveNode{"Noise"} {}
 
 void SineWave::generateWave() {
     for (size_t i = 0; i < BUFFERSIZE; i++) {
@@ -67,7 +63,6 @@ void SineWave::generateWave() {
         m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
-    Q_EMIT dataUpdated(0);
 }
 
 void SawWave::generateWave() {
@@ -77,7 +72,6 @@ void SawWave::generateWave() {
         m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
-    Q_EMIT dataUpdated(0);
 }
 
 void SquareWave::generateWave() {
@@ -87,7 +81,6 @@ void SquareWave::generateWave() {
         m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
-    Q_EMIT dataUpdated(0);
 }
 
 void TriangleWave::generateWave() {
@@ -97,13 +90,13 @@ void TriangleWave::generateWave() {
         m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
-    Q_EMIT dataUpdated(0);
 }
 
 void NoiseWave::generateWave() {
     static std::mt19937 gen(std::random_device{}());
     std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
 
-    for (size_t i = 0; i < BUFFERSIZE; i++) { m_outBuffer->m_buffer[i] = dis(gen); }
-    Q_EMIT dataUpdated(0);
+    for (size_t i = 0; i < BUFFERSIZE; i++) {
+        m_outBuffer->m_buffer[i] = dis(gen);
+    }
 }
