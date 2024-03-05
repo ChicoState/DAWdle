@@ -1,5 +1,6 @@
 #include "audiooutput.h"
 #include "audioinput.h"
+#include "util.h"
 
 AudioOutput::AudioOutput() {
     m_bufferData[0] = std::make_shared<BufferData>();
@@ -88,16 +89,50 @@ int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
 }
 
 void AudioOutput::initializePortAudio() {
-    Pa_Initialize();
+    PaError err = Pa_Initialize();
+    if (err != paNoError) {
+        fprintf(stderr, "Pa_Initialize failed with error: %s\n", Pa_GetErrorText(err));
+        exit(EXIT_FAILURE);
+    }
+    static uint32_t apiRanking[]{
+        /*paInDevelopment*/   0xFFFFFFFF,
+        /*paDirectSound*/     10,
+        /*paMME*/             11,
+        /*paASIO*/            0,
+        /*paSoundManager*/    10,
+        /*paCoreAudio*/       10,
+        /*dummy value*/       0xFFFFFFFF,
+        /*paOSS*/             10,
+        /*paALSA*/            10,
+        /*paAL*/              10,
+        /*paBeOS*/            10,
+        /*paWDMKS*/           10,
+        /*paJACK*/            10,
+        /*paWASAPI*/          1,
+        /*paAudioScienceHPI*/ 10,
+        /*paAudioIO*/         10,
+        /*paPulseAudio*/      10
+    };
+
+
+    const PaHostApiInfo* apiInfo = Pa_GetHostApiInfo(0);
+    PaHostApiIndex hostAPIs = Pa_GetHostApiCount();
+    for (PaHostApiIndex api = 1; api < hostAPIs; api++) {
+        const PaHostApiInfo* checkAPIInfo = Pa_GetHostApiInfo(api);
+        if (checkAPIInfo->type < ARRAY_COUNT(apiRanking) && apiRanking[checkAPIInfo->type] < apiRanking[apiInfo->type]) {
+            apiInfo = checkAPIInfo;
+        }
+    }
+    qDebug("DAWdle using API: %s", apiInfo->name);
 
     PaStreamParameters outputParameters;
-    outputParameters.device = Pa_GetDefaultOutputDevice();
+    outputParameters.device = apiInfo->defaultOutputDevice;
     outputParameters.channelCount = 1;
     outputParameters.sampleFormat = paFloat32;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
 
-    Pa_OpenStream(
+    err = Pa_OpenStream(
         &m_paStream,
         nullptr,
         &outputParameters,
@@ -107,6 +142,10 @@ void AudioOutput::initializePortAudio() {
         &AudioOutput::paCallback,
         this
     );
+    if (err != paNoError) {
+        fprintf(stderr, "Pa_OpenStream failed with error: %s\n", Pa_GetErrorText(err));
+        exit(EXIT_FAILURE);
+    }
 
     Pa_SetStreamFinishedCallback(m_paStream, nullptr);
 }
