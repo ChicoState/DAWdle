@@ -38,6 +38,11 @@ QtNodes::NodeDataType ArithmeticNode::dataType(QtNodes::PortType, QtNodes::PortI
 void ArithmeticNode::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) {
     auto bufferData = std::dynamic_pointer_cast<BufferData>(data);
 
+    if (!bufferData) {
+        qWarning() << "this would normally cause a segfault! caught it! Oorah!";
+        return;
+    }
+
     if (portIndex == 0) {
         for(size_t i = 0; i < BUFFERSIZE; i++) {
             m_inBuffer1->m_buffer[i] = bufferData->m_buffer[i];
