@@ -10,7 +10,7 @@ MainWindow::MainWindow() {
     addToolBar(toolbar);
 
     // Create a tab widget
-    tabWidget = new QTabWidget(this);
+    //tabWidget = new QTabWidget(this);
 
     // Register node models
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
@@ -55,7 +55,7 @@ MainWindow::MainWindow() {
 
     // Set up the layout
     QVBoxLayout* layout = new QVBoxLayout;
-    layout->addWidget(tabWidget);
+    //layout->addWidget(tabWidget);
     layout->addWidget(view);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
