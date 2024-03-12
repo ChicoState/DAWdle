@@ -2,9 +2,10 @@
 #define BUFFERDATA_H
 
 #include <QtNodes/NodeData>
+#include <portaudio/portaudio.h>
 
 #define BUFFERSIZE 1024
-#define SAMPLERATE 44100
+#define SAMPLERATE Pa_GetDeviceInfo(0)->defaultSampleRate
 
 class BufferData : public QtNodes::NodeData {
     public:
