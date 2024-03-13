@@ -1,4 +1,5 @@
 #include "wavenode.h"
+#include "audiooutput.h"
 #include <QtGui/QDoubleValidator>
 #include <QDebug>
 #include <random>
@@ -60,7 +61,7 @@ void SineWave::generateWave() {
     for (size_t i = 0; i < BUFFERSIZE; i++) {
         float frequency = m_inBuffer->m_buffer[i];
         m_outBuffer->m_buffer[i] = sinf(m_timesteps[frequency]);
-        m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
+        m_timesteps[frequency] += 2.0f * M_PI * frequency / sampleRate;
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
 }
@@ -69,7 +70,7 @@ void SawWave::generateWave() {
     for (size_t i = 0; i < BUFFERSIZE; i++) {
         float frequency = m_inBuffer->m_buffer[i];
         m_outBuffer->m_buffer[i] = 2.0f * (m_timesteps[frequency] / (2.0f * M_PI)) - 1.0f;
-        m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
+        m_timesteps[frequency] += 2.0f * M_PI * frequency / sampleRate;
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
 }
@@ -78,7 +79,7 @@ void SquareWave::generateWave() {
     for (size_t i = 0; i < BUFFERSIZE; i++) {
         float frequency = m_inBuffer->m_buffer[i];
         m_outBuffer->m_buffer[i] = sinf(m_timesteps[frequency]) > 0 ? 1.0f : -1.0f;
-        m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
+        m_timesteps[frequency] += 2.0f * M_PI * frequency / sampleRate;
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
 }
@@ -87,7 +88,7 @@ void TriangleWave::generateWave() {
     for (size_t i = 0; i < BUFFERSIZE; i++) {
         float frequency = m_inBuffer->m_buffer[i];
         m_outBuffer->m_buffer[i] = 2.0f * abs(2.0f * (m_timesteps[frequency] / (2.0f * M_PI)) - 1.0f) - 1.0f;
-        m_timesteps[frequency] += 2.0f * M_PI * frequency / static_cast<float>(SAMPLERATE);
+        m_timesteps[frequency] += 2.0f * M_PI * frequency / sampleRate;
         if(m_timesteps[frequency] >= 2.0f * M_PI) m_timesteps[frequency] -= 2.0f * M_PI;
     }
 }

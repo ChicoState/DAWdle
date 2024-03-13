@@ -2,6 +2,8 @@
 #include "audioinput.h"
 #include "util.h"
 
+float sampleRate;
+
 AudioOutput::AudioOutput() {
     m_bufferData[0] = std::make_shared<BufferData>();
     m_bufferData[0]->setAll(0.0f);
@@ -125,23 +127,26 @@ void AudioOutput::initializePortAudio() {
     }
     qDebug("DAWdle using API: %s", apiInfo->name);
 
+    const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(apiInfo->defaultOutputDevice);
+    sampleRate = float(deviceInfo->defaultSampleRate);
+
     PaStreamParameters outputParameters;
     outputParameters.device = apiInfo->defaultOutputDevice;
     outputParameters.channelCount = 1;
     outputParameters.sampleFormat = paFloat32;
     outputParameters.hostApiSpecificStreamInfo = nullptr;
-    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+    outputParameters.suggestedLatency = deviceInfo->defaultLowOutputLatency;
 
     err = Pa_OpenStream(
         &m_paStream,
         nullptr,
         &outputParameters,
-        SAMPLERATE,
+        double(sampleRate),
         paFramesPerBufferUnspecified,
         paNoFlag,
         &AudioOutput::paCallback,
         this
-    );
+        );
     if (err != paNoError) {
         fprintf(stderr, "Pa_OpenStream failed with error: %s\n", Pa_GetErrorText(err));
         exit(EXIT_FAILURE);
