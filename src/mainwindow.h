@@ -36,7 +36,6 @@ private:
     void createNode();
 
     QToolBar* toolbar;
-    QTabWidget* tabWidget;
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry;
     QtNodes::DataFlowGraphModel* graph;
     QtNodes::DataFlowGraphicsScene* scene;
