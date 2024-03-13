@@ -27,7 +27,6 @@ class DecimalInput : public QtNodes::NodeDelegateModel, AudioInput {
         QWidget* embeddedWidget() override;
 
         void updateBufferData(const QString& value);
-        void repropogateData();
 
     private:
         std::shared_ptr<BufferData> m_bufferData;
