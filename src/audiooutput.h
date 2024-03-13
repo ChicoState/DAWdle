@@ -8,6 +8,8 @@
 
 #include "bufferdata.h"
 
+extern float sampleRate;
+
 class AudioOutput : public QtNodes::NodeDelegateModel {
     Q_OBJECT
 

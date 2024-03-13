@@ -5,7 +5,6 @@
 #include <portaudio/portaudio.h>
 
 #define BUFFERSIZE 1024
-#define SAMPLERATE Pa_GetDeviceInfo(0)->defaultSampleRate
 
 class BufferData : public QtNodes::NodeData {
     public:
