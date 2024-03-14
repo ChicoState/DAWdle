@@ -1,8 +1,15 @@
 #include "audiooutput.h"
 #include "audioinput.h"
+#include "qtimer.h"
+#include "qmutex.h"
 #include "util.h"
 
 float sampleRate;
+QMutex audioOutputMutex;
+const uint32_t audioOutputBufferSize = BUFFERSIZE * 4;
+float audioOutputBuffer[audioOutputBufferSize];
+uint32_t audioOutputBufferReadPos;
+uint32_t audioOutputBufferWritePos;
 
 AudioOutput::AudioOutput() {
     m_bufferData[0] = std::make_shared<BufferData>();
@@ -49,6 +56,9 @@ void AudioOutput::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::Po
         for(size_t i = 0; i < BUFFERSIZE; i++) {
             m_bufferData[abs(m_currentBuffer - 1)]->m_buffer[i] = inputData->m_buffer[i];
         }
+    } else {
+        m_bufferData[0]->setAll(0.0F);
+        m_bufferData[1]->setAll(0.0F);
     }
     if(m_needsAnotherBuffer) {
         if(m_currentBuffer == 0) {
@@ -70,23 +80,52 @@ QWidget* AudioOutput::embeddedWidget() {
 }
 
 void AudioOutput::playButtonClicked() {
+    static bool started = false;
+    static AudioOutput* audioOutputNode;
+    if (started) {
+        return;
+    }
+    started = true;
+    audioOutputNode = this;
+    AudioInput::refreshStreams();
     Pa_StartStream(m_paStream);
+    // Drillgon (2024-03-12): This should be replaced later
+    QTimer* timer = new QTimer();
+    timer->setTimerType(Qt::TimerType::PreciseTimer);
+    timer->setInterval(std::chrono::milliseconds(1));
+    timer->callOnTimeout([](){
+        while (audioOutputBufferWritePos - audioOutputBufferReadPos < audioOutputBufferSize - BUFFERSIZE) {
+            audioOutputNode->m_currentBuffer = (audioOutputNode->m_currentBuffer + 1) & 1;
+            AudioInput::refreshStreams();
+
+            audioOutputMutex.lock();
+            memmove(audioOutputBuffer, audioOutputBuffer + audioOutputBufferReadPos, (audioOutputBufferWritePos - audioOutputBufferReadPos) * sizeof(audioOutputBuffer[0]));
+            audioOutputBufferWritePos -= audioOutputBufferReadPos;
+            audioOutputBufferReadPos = 0;
+            memcpy(audioOutputBuffer + audioOutputBufferWritePos, audioOutputNode->m_bufferData[audioOutputNode->m_currentBuffer]->m_buffer, BUFFERSIZE * sizeof(audioOutputBuffer[0]));
+            audioOutputBufferWritePos += BUFFERSIZE;
+            audioOutputMutex.unlock();
+        }
+    });
+    timer->start();
 }
 
 int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
                                 unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo* timeInfo,
                                 PaStreamCallbackFlags statusFlags, void* userData) {
-    static unsigned long framesElapsed = 0;
-    AudioOutput* audioOutputNode = static_cast<AudioOutput*>(userData);
+    Q_UNUSED(inputBuffer);
+    Q_UNUSED(timeInfo);
+    Q_UNUSED(statusFlags);
+    Q_UNUSED(userData);
+    audioOutputMutex.lock();
     for(size_t i = 0; i < framesPerBuffer; i++) {
-        if(framesElapsed == BUFFERSIZE) {
-            framesElapsed = 0;
-            audioOutputNode->m_currentBuffer = abs(audioOutputNode->m_currentBuffer - 1);
-            AudioInput::refreshStreams();
+        if (audioOutputBufferReadPos < audioOutputBufferWritePos) {
+            static_cast<float*>(outputBuffer)[i] = audioOutputBuffer[audioOutputBufferReadPos++];
+        } else {
+            static_cast<float*>(outputBuffer)[i] = 0.0F;
         }
-        static_cast<float*>(outputBuffer)[i] = audioOutputNode->m_bufferData[audioOutputNode->m_currentBuffer]->m_buffer[framesElapsed];
-        framesElapsed++;
     }
+    audioOutputMutex.unlock();
     return paContinue;
 }
 
