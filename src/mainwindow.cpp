@@ -23,7 +23,7 @@ MainWindow::MainWindow() {
     registry->registerModel<SawWave>("Oscillators");
     registry->registerModel<SquareWave>("Oscillators");
     registry->registerModel<TriangleWave>("Oscillators");
-    registry->registerModel<NoiseWave>("Oscillators");
+    registry->registerModel<AudioOutput>("Output");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
@@ -31,9 +31,6 @@ MainWindow::MainWindow() {
 
     // Create the view
     view = new QtNodes::GraphicsView{ scene };
-
-    // Add an initial node to the graph
-    graph->addNode<AudioOutput>();
 
     // Create menu items
     QMenu* inputMenu = new QMenu("Input", this);
