@@ -49,6 +49,31 @@ QWidget* DecimalInput::embeddedWidget() {
     return m_lineEdit;
 }
 
+QJsonObject DecimalInput::save() const {
+    QJsonObject modelJson = NodeDelegateModel::save();
+    modelJson["value"] = QString::number(m_bufferData->m_buffer[0]);
+    return modelJson;
+}
+
+void DecimalInput::load(const QJsonObject& json) {
+    QJsonValue val = json["value"];
+
+    if (!val.isUndefined()) {
+        QString strNum = val.toString();
+
+        bool ok;
+        double data = strNum.toDouble(&ok);
+        if (ok) {
+            m_bufferData = std::make_shared<BufferData>();
+            m_bufferData->setAll(data);
+
+            if (m_lineEdit) {
+                m_lineEdit->setText(strNum);
+            }
+        }
+    }
+}
+
 void DecimalInput::updateBufferData(const QString& value) {
     m_bufferData->setAll(value.toFloat());
     Q_EMIT dataUpdated(0);

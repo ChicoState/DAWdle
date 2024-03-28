@@ -1,3 +1,5 @@
+#include <QtNodes/DataFlowGraphicsScene>
+
 #include "mainwindow.h"
 #include "decimalinput.h"
 #include "wavenode.h"
@@ -21,7 +23,7 @@ MainWindow::MainWindow() {
     registry->registerModel<SawWave>("Oscillators");
     registry->registerModel<SquareWave>("Oscillators");
     registry->registerModel<TriangleWave>("Oscillators");
-    registry->registerModel<NoiseWave>("Oscillators");
+    registry->registerModel<AudioOutput>("Output");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
@@ -29,9 +31,6 @@ MainWindow::MainWindow() {
 
     // Create the view
     view = new QtNodes::GraphicsView{ scene };
-
-    // Add an initial node to the graph
-    graph->addNode<AudioOutput>();
 
     // Create menu items
     QMenu* inputMenu = new QMenu("Input", this);
@@ -56,10 +55,16 @@ MainWindow::MainWindow() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    //Add menus to toolbar
+    // Add menus to toolbar
     toolbar->addAction(inputMenu->menuAction());
     toolbar->addAction(audioMenu->menuAction());
     toolbar->addAction(arithmeticMenu->menuAction());
+
+    // Save and load functionality
+    QAction* saveAction = toolbar->addAction("Save Project");
+    QAction* loadAction = toolbar->addAction("Load Project");
+    QObject::connect(saveAction, &QAction::triggered, scene, &QtNodes::DataFlowGraphicsScene::save);
+    QObject::connect(loadAction, &QAction::triggered, scene, &QtNodes::DataFlowGraphicsScene::load);
 
     // Set up the main window
     setCentralWidget(new QWidget);
