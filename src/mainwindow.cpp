@@ -1,3 +1,5 @@
+#include <QtNodes/DataFlowGraphicsScene>
+
 #include "mainwindow.h"
 #include "decimalinput.h"
 #include "wavenode.h"
@@ -56,10 +58,16 @@ MainWindow::MainWindow() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    //Add menus to toolbar
+    // Add menus to toolbar
     toolbar->addAction(inputMenu->menuAction());
     toolbar->addAction(audioMenu->menuAction());
     toolbar->addAction(arithmeticMenu->menuAction());
+
+    // Save and load functionality
+    QAction* saveAction = toolbar->addAction("Save Project");
+    QAction* loadAction = toolbar->addAction("Load Project");
+    QObject::connect(saveAction, &QAction::triggered, scene, &QtNodes::DataFlowGraphicsScene::save);
+    QObject::connect(loadAction, &QAction::triggered, scene, &QtNodes::DataFlowGraphicsScene::load);
 
     // Set up the main window
     setCentralWidget(new QWidget);
