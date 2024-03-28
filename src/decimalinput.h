@@ -26,6 +26,9 @@ class DecimalInput : public QtNodes::NodeDelegateModel, AudioInput {
 
         QWidget* embeddedWidget() override;
 
+        QJsonObject save() const override;
+        void load(const QJsonObject& json) override;
+
         void updateBufferData(const QString& value);
 
     private:
