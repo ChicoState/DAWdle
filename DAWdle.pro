@@ -10,6 +10,7 @@ SOURCES += \
     src/arithmeticnode.cpp \
     src/audioinput.cpp \
     src/audiooutput.cpp \
+    src/boxlayoutwrapper.cpp \
     src/decimalinput.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
@@ -19,6 +20,7 @@ HEADERS += \
     src/arithmeticnode.h \
     src/audioinput.h \
     src/audiooutput.h \
+    src/boxlayoutwrapper.h \
     src/bufferdata.h \
     src/decimalinput.h \
     src/mainwindow.h \

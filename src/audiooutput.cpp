@@ -1,6 +1,7 @@
 #include "audiooutput.h"
 #include "audioinput.h"
 #include "mainwindow.h"
+#include "boxlayoutwrapper.h"
 #include "qtimer.h"
 #include "qmutex.h"
 
@@ -20,9 +21,15 @@ AudioOutput::AudioOutput() {
 
     m_needsAnotherBuffer = true;
     m_currentBuffer = 1;
+    m_playing = false;
 
-    m_playButton = new QPushButton("Play");
-    connect(m_playButton, &QPushButton::clicked, this, &AudioOutput::playButtonClicked);
+    QPushButton* playButton = new QPushButton("Play");
+    connect(playButton, &QPushButton::clicked, this, &AudioOutput::playButtonClicked);
+
+    QPushButton* pauseButton = new QPushButton("Pause");
+    connect(pauseButton, &QPushButton::clicked, this, &AudioOutput::pauseButtonClicked);
+
+    m_buttons = new BoxLayoutWrapper({ playButton, pauseButton });
 
     // Drillgon (2024-03-12): This should be replaced later
     m_timer = new QTimer();
@@ -47,7 +54,7 @@ AudioOutput::AudioOutput() {
 AudioOutput::~AudioOutput() {
     m_timer->stop();
     delete m_timer;
-    delete m_playButton;
+    delete m_buttons;
 }
 QString AudioOutput::caption() const {
     return QStringLiteral("Audio Output");
@@ -95,18 +102,21 @@ std::shared_ptr<QtNodes::NodeData> AudioOutput::outData(QtNodes::PortIndex) {
 }
 
 QWidget* AudioOutput::embeddedWidget() {
-    return m_playButton;
+    return m_buttons;
 }
 
 void AudioOutput::playButtonClicked() {
-    static bool started = false;
-    if (started) {
-        return;
-    }
-    started = true;
-    AudioInput::refreshStreams();
+    if (m_playing) return;
+    m_playing = true;
     Pa_StartStream(MainWindow::getStream());
     m_timer->start();
+}
+
+void AudioOutput::pauseButtonClicked() {
+    if (!m_playing) return;
+    m_playing = false;
+    Pa_StopStream(MainWindow::getStream());
+    m_timer->stop();
 }
 
 int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,

@@ -35,13 +35,15 @@ public:
 
 private:
     std::shared_ptr<BufferData> m_bufferData[2];
-    QPushButton* m_playButton;
+    QWidget* m_buttons;
     QTimer* m_timer;
     int m_currentBuffer;
     bool m_needsAnotherBuffer;
+    bool m_playing;
 
 private slots:
     void playButtonClicked();
+    void pauseButtonClicked();
 };
 
 #endif
