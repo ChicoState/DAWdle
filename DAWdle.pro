@@ -13,6 +13,7 @@ SOURCES += \
     src/decimalinput.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
+    src/pianoroll.cpp \
     src/wavenode.cpp
 
 HEADERS += \
@@ -22,6 +23,7 @@ HEADERS += \
     src/bufferdata.h \
     src/decimalinput.h \
     src/mainwindow.h \
+    src/pianoroll.h \
     src/util.h \
     src/wavenode.h
 
