@@ -5,6 +5,7 @@
 #include "wavenode.h"
 #include "audiooutput.h"
 #include "arithmeticnode.h"
+#include "pianoroll.h"
 
 MainWindow::MainWindow() {
     // Create a toolbar
@@ -24,6 +25,7 @@ MainWindow::MainWindow() {
     registry->registerModel<SquareWave>("Oscillators");
     registry->registerModel<TriangleWave>("Oscillators");
     registry->registerModel<AudioOutput>("Output");
+    registry->registerModel<PianoRoll>("Input");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
