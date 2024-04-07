@@ -1,8 +1,8 @@
 #include "audiooutput.h"
 #include "audioinput.h"
+#include "mainwindow.h"
 #include "qtimer.h"
 #include "qmutex.h"
-#include "util.h"
 
 float sampleRate;
 QMutex audioOutputMutex;
@@ -23,13 +23,32 @@ AudioOutput::AudioOutput() {
 
     m_playButton = new QPushButton("Play");
     connect(m_playButton, &QPushButton::clicked, this, &AudioOutput::playButtonClicked);
-    initializePortAudio();
+
+    // Drillgon (2024-03-12): This should be replaced later
+    m_timer = new QTimer();
+    m_timer->setTimerType(Qt::TimerType::PreciseTimer);
+    m_timer->setInterval(std::chrono::milliseconds(1));
+    m_timer->callOnTimeout([this](){
+        while (audioOutputBufferWritePos - audioOutputBufferReadPos < audioOutputBufferSize - BUFFERSIZE) {
+            this->m_currentBuffer = (this->m_currentBuffer + 1) & 1;
+            AudioInput::refreshStreams();
+
+            audioOutputMutex.lock();
+            memmove(audioOutputBuffer, audioOutputBuffer + audioOutputBufferReadPos, (audioOutputBufferWritePos - audioOutputBufferReadPos) * sizeof(audioOutputBuffer[0]));
+            audioOutputBufferWritePos -= audioOutputBufferReadPos;
+            audioOutputBufferReadPos = 0;
+            memcpy(audioOutputBuffer + audioOutputBufferWritePos, this->m_bufferData[this->m_currentBuffer]->m_buffer, BUFFERSIZE * sizeof(audioOutputBuffer[0]));
+            audioOutputBufferWritePos += BUFFERSIZE;
+            audioOutputMutex.unlock();
+        }
+    });
 }
 
 AudioOutput::~AudioOutput() {
-    cleanupPortAudio();
+    m_timer->stop();
+    delete m_timer;
+    delete m_playButton;
 }
-
 QString AudioOutput::caption() const {
     return QStringLiteral("Audio Output");
 }
@@ -81,33 +100,13 @@ QWidget* AudioOutput::embeddedWidget() {
 
 void AudioOutput::playButtonClicked() {
     static bool started = false;
-    static AudioOutput* audioOutputNode;
     if (started) {
         return;
     }
     started = true;
-    audioOutputNode = this;
     AudioInput::refreshStreams();
-    Pa_StartStream(m_paStream);
-    // Drillgon (2024-03-12): This should be replaced later
-    QTimer* timer = new QTimer();
-    timer->setTimerType(Qt::TimerType::PreciseTimer);
-    timer->setInterval(std::chrono::milliseconds(1));
-    timer->callOnTimeout([](){
-        while (audioOutputBufferWritePos - audioOutputBufferReadPos < audioOutputBufferSize - BUFFERSIZE) {
-            audioOutputNode->m_currentBuffer = (audioOutputNode->m_currentBuffer + 1) & 1;
-            AudioInput::refreshStreams();
-
-            audioOutputMutex.lock();
-            memmove(audioOutputBuffer, audioOutputBuffer + audioOutputBufferReadPos, (audioOutputBufferWritePos - audioOutputBufferReadPos) * sizeof(audioOutputBuffer[0]));
-            audioOutputBufferWritePos -= audioOutputBufferReadPos;
-            audioOutputBufferReadPos = 0;
-            memcpy(audioOutputBuffer + audioOutputBufferWritePos, audioOutputNode->m_bufferData[audioOutputNode->m_currentBuffer]->m_buffer, BUFFERSIZE * sizeof(audioOutputBuffer[0]));
-            audioOutputBufferWritePos += BUFFERSIZE;
-            audioOutputMutex.unlock();
-        }
-    });
-    timer->start();
+    Pa_StartStream(MainWindow::getStream());
+    m_timer->start();
 }
 
 int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
@@ -127,75 +126,4 @@ int AudioOutput::paCallback(const void* inputBuffer, void* outputBuffer,
     }
     audioOutputMutex.unlock();
     return paContinue;
-}
-
-void AudioOutput::initializePortAudio() {
-    PaError err = Pa_Initialize();
-    if (err != paNoError) {
-        fprintf(stderr, "Pa_Initialize failed with error: %s\n", Pa_GetErrorText(err));
-        exit(EXIT_FAILURE);
-    }
-    static uint32_t apiRanking[]{
-        /*paInDevelopment*/   0xFFFFFFFF,
-        /*paDirectSound*/     10,
-        /*paMME*/             11,
-        /*paASIO*/            0,
-        /*paSoundManager*/    10,
-        /*paCoreAudio*/       10,
-        /*dummy value*/       0xFFFFFFFF,
-        /*paOSS*/             10,
-        /*paALSA*/            10,
-        /*paAL*/              10,
-        /*paBeOS*/            10,
-        /*paWDMKS*/           10,
-        /*paJACK*/            10,
-        /*paWASAPI*/          1,
-        /*paAudioScienceHPI*/ 10,
-        /*paAudioIO*/         10,
-        /*paPulseAudio*/      10
-    };
-
-
-    const PaHostApiInfo* apiInfo = Pa_GetHostApiInfo(0);
-    PaHostApiIndex hostAPIs = Pa_GetHostApiCount();
-    for (PaHostApiIndex api = 1; api < hostAPIs; api++) {
-        const PaHostApiInfo* checkAPIInfo = Pa_GetHostApiInfo(api);
-        if (checkAPIInfo->type < ARRAY_COUNT(apiRanking) && apiRanking[checkAPIInfo->type] < apiRanking[apiInfo->type]) {
-            apiInfo = checkAPIInfo;
-        }
-    }
-    qDebug("DAWdle using API: %s", apiInfo->name);
-
-    const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(apiInfo->defaultOutputDevice);
-    sampleRate = float(deviceInfo->defaultSampleRate);
-
-    PaStreamParameters outputParameters;
-    outputParameters.device = apiInfo->defaultOutputDevice;
-    outputParameters.channelCount = 1;
-    outputParameters.sampleFormat = paFloat32;
-    outputParameters.hostApiSpecificStreamInfo = nullptr;
-    outputParameters.suggestedLatency = deviceInfo->defaultLowOutputLatency;
-
-    err = Pa_OpenStream(
-        &m_paStream,
-        nullptr,
-        &outputParameters,
-        double(sampleRate),
-        paFramesPerBufferUnspecified,
-        paNoFlag,
-        &AudioOutput::paCallback,
-        this
-        );
-    if (err != paNoError) {
-        fprintf(stderr, "Pa_OpenStream failed with error: %s\n", Pa_GetErrorText(err));
-        exit(EXIT_FAILURE);
-    }
-
-    Pa_SetStreamFinishedCallback(m_paStream, nullptr);
-}
-
-void AudioOutput::cleanupPortAudio() {
-    Pa_StopStream(m_paStream);
-    Pa_CloseStream(m_paStream);
-    Pa_Terminate();
 }
