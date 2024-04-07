@@ -25,6 +25,7 @@ public:
 
 private slots:
     void createDecimalNode();
+    void createSamplerNode();
     void createSineWave();
     void createSawWave();
     void createSquareWave();

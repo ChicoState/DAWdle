@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 #include "decimalinput.h"
+#include "sampler.h"
 #include "wavenode.h"
 #include "audiooutput.h"
 #include "arithmeticnode.h"
@@ -15,6 +16,7 @@ MainWindow::MainWindow() {
     // Register node models
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Input");
+    registry->registerModel<Sampler>("Input");
     registry->registerModel<AdditionNode>("Arithmetic");
     registry->registerModel<SubtractionNode>("Arithmetic");
     registry->registerModel<MultiplicationNode>("Arithmetic");
@@ -36,6 +38,7 @@ MainWindow::MainWindow() {
     // Create menu items
     QMenu* inputMenu = new QMenu("Input", this);
     inputMenu->addAction("Add Decimal", this, SLOT(createDecimalNode()));
+    inputMenu->addAction("Add Sampler", this, SLOT(createSamplerNode()));
 
     QMenu* audioMenu = new QMenu("Audio Generation", this);
     audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWave()));
@@ -88,6 +91,10 @@ PaStream* MainWindow::getStream() {
 // Define slot functions for menu actions
 void MainWindow::createDecimalNode() {
     createNode<DecimalInput>();
+}
+
+void MainWindow::createSamplerNode() {
+    createNode<Sampler>();
 }
 
 void MainWindow::createSineWave() {
