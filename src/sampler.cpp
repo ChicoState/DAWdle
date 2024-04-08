@@ -109,7 +109,8 @@ void Sampler::loadFromFile() {
     for(size_t i = 0; i < BUFFERSIZE; i++) {
         m_outBuffer->m_buffer[i] = m_audioData[m_bufPtr];
         m_bufPtr += m_inBuffer->m_buffer[i];
-        if(m_bufPtr > m_audioData.size()) m_bufPtr = 0.0f;
+        if(m_bufPtr > m_audioData.size() - 1) m_bufPtr = 0.0f;
+        else if(m_bufPtr < 0) m_bufPtr = m_audioData.size() - 1;
     }
 }
 
@@ -118,7 +119,8 @@ void Sampler::refreshStream() {
     for(size_t i = 0; i < BUFFERSIZE; i++) {
         m_outBuffer->m_buffer[i] = m_audioData[m_bufPtr];
         m_bufPtr += m_inBuffer->m_buffer[i];
-        if(m_bufPtr > m_audioData.size()) m_bufPtr = 0.0f;
+        if(m_bufPtr > m_audioData.size() - 1) m_bufPtr = 0.0f;
+        else if(m_bufPtr < 0) m_bufPtr = m_audioData.size() - 1;
     }
     Q_EMIT dataUpdated(0);
 }
