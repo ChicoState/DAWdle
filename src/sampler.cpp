@@ -4,8 +4,11 @@
 #include <QFileDialog>
 
 Sampler::Sampler() {
-    m_bufferData = std::make_shared<BufferData>();
-    m_bufferData->setAll(0.0f);
+    m_inBuffer = std::make_shared<BufferData>();
+    m_inBuffer->setAll(1.0f);
+
+    m_outBuffer = std::make_shared<BufferData>();
+    m_outBuffer->setAll(0.0f);
 
     m_button = new QPushButton("Load File");
     connect(m_button, &QPushButton::clicked, this, &Sampler::buttonPressed);
@@ -28,18 +31,24 @@ bool Sampler::captionVisible() const {
 }
 
 unsigned int Sampler::nPorts(QtNodes::PortType portType) const {
-    if(portType == QtNodes::PortType::Out) return 1;
-    return 0;
+    return 1;
 }
 
 QtNodes::NodeDataType Sampler::dataType(QtNodes::PortType, QtNodes::PortIndex) const {
     return BufferData{}.type();
 }
 
-void Sampler::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) {}
+void Sampler::setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex) {
+    if (auto inputData = std::dynamic_pointer_cast<BufferData>(data)) {
+        for(size_t i = 0; i < BUFFERSIZE; i++) {
+            m_inBuffer->m_buffer[i] = inputData->m_buffer[i];
+        }
+        Q_EMIT dataUpdated(0);
+    }
+}
 
 std::shared_ptr<QtNodes::NodeData> Sampler::outData(QtNodes::PortIndex) {
-    return m_bufferData;
+    return m_outBuffer;
 }
 
 QWidget* Sampler::embeddedWidget() {
@@ -96,17 +105,22 @@ void Sampler::loadFromFile() {
         m_audioData = intermediateBuffer;
     }
 
+    m_bufPtr = 0.0f;
     for(size_t i = 0; i < BUFFERSIZE; i++) {
-        m_bufferData->m_buffer[i] = m_audioData[m_bufPtr];
-        m_bufPtr = (m_bufPtr + 1) % m_audioData.size();
+        m_outBuffer->m_buffer[i] = m_audioData[m_bufPtr];
+        m_bufPtr += m_inBuffer->m_buffer[i];
+        if(m_bufPtr > m_audioData.size() - 1) m_bufPtr = 0.0f;
+        else if(m_bufPtr < 0) m_bufPtr = m_audioData.size() - 1;
     }
 }
 
 void Sampler::refreshStream() {
     if(m_audioData.size() == 0) return;
     for(size_t i = 0; i < BUFFERSIZE; i++) {
-        m_bufferData->m_buffer[i] = m_audioData[m_bufPtr];
-        m_bufPtr = (m_bufPtr + 1) % m_audioData.size();
+        m_outBuffer->m_buffer[i] = m_audioData[m_bufPtr];
+        m_bufPtr += m_inBuffer->m_buffer[i];
+        if(m_bufPtr > m_audioData.size() - 1) m_bufPtr = 0.0f;
+        else if(m_bufPtr < 0) m_bufPtr = m_audioData.size() - 1;
     }
     Q_EMIT dataUpdated(0);
 }

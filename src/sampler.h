@@ -35,12 +35,13 @@ private slots:
 private:
     void loadFromFile();
     void refreshStream() override;
-
-    std::shared_ptr<BufferData> m_bufferData;
+    
+    std::shared_ptr<BufferData> m_inBuffer;
+    std::shared_ptr<BufferData> m_outBuffer;
     std::vector<float> m_audioData;
     QPushButton* m_button;
     std::string m_path;
-    size_t m_bufPtr = 0;
+    float m_bufPtr = 0;
 };
 
 #endif // AUDIOINPUTNODE_H
