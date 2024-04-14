@@ -184,7 +184,7 @@ struct DesktopSwapchainData {
 		CHK_VK(vkCreateWin32SurfaceKHR(vkInstance, &surfaceInfo, nullptr, &surface));
 	}
 
-	void create(I32 newWidth, I32 newHeight) {
+	void create(I32 newWidth, I32 newHeight, VkSwapchainKHR oldSwapchain) {
 		MemoryArena& stackArena = get_scratch_arena();
 		U64 stackArenaFrame0 = stackArena.stackPtr;
 		if (newWidth <= 0 || newHeight <= 0 || vkGetPhysicalDeviceWin32PresentationSupportKHR(physicalDevice, graphicsFamily) == VK_FALSE) {
@@ -236,7 +236,7 @@ struct DesktopSwapchainData {
 				VkSwapchainCreateInfoKHR swapchainCreateInfo{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 				swapchainCreateInfo.flags = 0;
 				swapchainCreateInfo.surface = surface;
-				swapchainCreateInfo.minImageCount = max(2u, surfaceCaps.minImageCount);
+				swapchainCreateInfo.minImageCount = clamp(2u, surfaceCaps.minImageCount, surfaceCaps.maxImageCount == 0 ? U32_MAX : surfaceCaps.maxImageCount);
 				swapchainCreateInfo.imageFormat = surfaceFormat.format;
 				swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
 				swapchainCreateInfo.imageExtent.width = width;
@@ -250,7 +250,7 @@ struct DesktopSwapchainData {
 				swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 				swapchainCreateInfo.presentMode = presentMode;
 				swapchainCreateInfo.clipped = VK_TRUE;
-				swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+				swapchainCreateInfo.oldSwapchain = oldSwapchain;
 				CHK_VK(vkCreateSwapchainKHR(logicalDevice, &swapchainCreateInfo, VK_NULL_HANDLE, &swapchain));
 
 				U32 newSwapchainImageCount;
@@ -274,15 +274,18 @@ struct DesktopSwapchainData {
 	void resize(I32 newWidth, I32 newHeight) {
 		// Heavy sync, but this is only expected to run when the user resizes the desktop window anyway
 		CHK_VK(vkDeviceWaitIdle(logicalDevice));
-		if (swapchain != VK_NULL_HANDLE) {
-			vkDestroySwapchainKHR(logicalDevice, swapchain, nullptr);
+		VkSwapchainKHR oldSwapchain = swapchain;
+		if (oldSwapchain != VK_NULL_HANDLE) {
 			// We don't have to destroy these, but it makes the code a little simpler, and like I said, it doesn't matter if we're a little inefficient here
 			for (VkSemaphore sem : swapchainAcquireSemaphores) {
 				vkDestroySemaphore(logicalDevice, sem, nullptr);
 			}
 			swapchain = VK_NULL_HANDLE;
 		}
-		this->create(newWidth, newHeight);
+		this->create(newWidth, newHeight, oldSwapchain);
+		if (oldSwapchain != VK_NULL_HANDLE) {
+			vkDestroySwapchainKHR(logicalDevice, oldSwapchain, nullptr);
+		}
 	}
 
 	void destroy() {
@@ -791,7 +794,7 @@ allNecessaryQueuesPresent:;
 		CHK_VK(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &renderFinishedFences[i]));
 	}
 
-	desktopSwapchainData.create(Win32::framebufferWidth, Win32::framebufferHeight);
+	desktopSwapchainData.create(Win32::framebufferWidth, Win32::framebufferHeight, VK_NULL_HANDLE);
 
 	create_render_targets();
 
@@ -1639,14 +1642,18 @@ enum FrameBeginResult {
 	FRAME_BEGIN_RESULT_DONT_RENDER
 };
 
+void recreate_swapchain() {
+	desktopSwapchainData.resize(Win32::framebufferWidth, Win32::framebufferHeight);
+	mainFramebuffer.destroy();
+	if (desktopSwapchainData.swapchain) {
+		mainFramebuffer.dimensions(desktopSwapchainData.width, desktopSwapchainData.height).build();
+	}
+	Win32::shouldRecreateSwapchain = false;
+}
+
 FrameBeginResult begin_frame() {
 	if (Win32::shouldRecreateSwapchain) {
-		desktopSwapchainData.resize(Win32::framebufferWidth, Win32::framebufferHeight);
-		mainFramebuffer.destroy();
-		if (desktopSwapchainData.swapchain) {
-			mainFramebuffer.dimensions(desktopSwapchainData.width, desktopSwapchainData.height).build();
-		}
-		Win32::shouldRecreateSwapchain = false;
+		recreate_swapchain();
 	}
 	if (desktopSwapchainData.swapchain == VK_NULL_HANDLE) {
 		return FRAME_BEGIN_RESULT_DONT_RENDER;
@@ -1660,16 +1667,15 @@ FrameBeginResult begin_frame() {
 	}
 	frameDestroyLists[currentFrameInFlight].descriptorPools.clear();
 
-	VkResult acquireResult = vkAcquireNextImageKHR(logicalDevice, desktopSwapchainData.swapchain, U64_MAX, desktopSwapchainData.swapchainAcquireSemaphores[currentFrameInFlight], VK_NULL_HANDLE, &desktopSwapchainData.swapchainImageIdx);
-	if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR) {
-		desktopSwapchainData.resize(Win32::framebufferWidth, Win32::framebufferHeight);
-		mainFramebuffer.destroy();
-		mainFramebuffer.dimensions(desktopSwapchainData.width, desktopSwapchainData.height).build();
-		Win32::shouldRecreateSwapchain = false;
-		return FRAME_BEGIN_RESULT_TRY_AGAIN;
-	} else {
-		CHK_VK(acquireResult);
-	}
+	VkResult acquireResult;
+	do {
+		acquireResult = vkAcquireNextImageKHR(logicalDevice, desktopSwapchainData.swapchain, U64_MAX, desktopSwapchainData.swapchainAcquireSemaphores[currentFrameInFlight], VK_NULL_HANDLE, &desktopSwapchainData.swapchainImageIdx);
+		if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR) {
+			recreate_swapchain();
+		} else {
+			CHK_VK(acquireResult);
+		}
+	} while (acquireResult != VK_SUCCESS);
 
 	CHK_VK(vkResetCommandPool(logicalDevice, graphicsCommandPools[0], 0));
 
@@ -1681,8 +1687,6 @@ FrameBeginResult begin_frame() {
 }
 
 void end_frame() {
-	vkCmdEndRenderPass(graphicsCommandBuffer);
-
 	// Framebuffer image -> transfer src optimal
 	VkImageMemoryBarrier imageTransferBarrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageTransferBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -1757,7 +1761,7 @@ void end_frame() {
 	//LOG_TIME("Present: ")
 	queuePresentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
 	if (queuePresentResult == VK_ERROR_OUT_OF_DATE_KHR || queuePresentResult == VK_SUBOPTIMAL_KHR) {
-		// Handle it next frame
+		recreate_swapchain();
 	} else {
 		CHK_VK(queuePresentResult);
 	}

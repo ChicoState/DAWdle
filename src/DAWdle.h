@@ -121,57 +121,12 @@ void do_frame() {
 
 		UI::draw();
 		DynamicVertexBuffer::get_tessellator().draw();
+
+		VK::vkCmdEndRenderPass(VK::graphicsCommandBuffer);
+
 		VK::end_frame();
 	} else {
 		Sleep(1);
-	}
-}
-
-void build_test_ui() {
-	using namespace UI;
-	UI_RBOX() {
-		UI_BACKGROUND_COLOR((V4F32{ 1.0F, 0.5F, 0.5F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 0\n"); });
-		UI_BACKGROUND_COLOR((V4F32{ 0.5F, 0.5F, 0.8F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 1\n"); });
-		spacer();
-		UI_BACKGROUND_COLOR((V4F32{ 0.0F, 0.5F, 0.5F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 2\n"); });
-	}
-	UI_RBOX() {
-		str_a("Text 1"sa);
-		spacer(16.0F);
-		str_a("Text 2"sa);
-		spacer(32.0F);
-		str_a("Text"sa);
-	}
-	UI_RBOX() {
-		UI_BACKGROUND_COLOR((V4F32{ 1.0F, 0.2F, 0.2F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 3\n"); });
-		spacer();
-		UI_BACKGROUND_COLOR((V4F32{ 0.5F, 1.0F, 0.8F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 4\n"); });
-		UI_BACKGROUND_COLOR((V4F32{ 0.2F, 0.7F, 0.8F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 5\n"); });
-		UI_BACKGROUND_COLOR((V4F32{ 0.7F, 0.8F, 0.1F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 6\n"); });
-	}
-	UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.2F, 0.05F, 1.0F })) {
-		BoxHandle b = button(Textures::simpleWhite, [](Box* box) { print("Clicked long button\n"); });
-		b.unsafeBox->minSize.x += 20.0F;
-	}
-	UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.2F, 1.0F })) {
-		BoxHandle b = button(Textures::simpleWhite, [](Box* box) { println(box->text); });
-		b.unsafeBox->text = "Text button"sa;
-	}
-	spacer(2.0F);
-	UI_DBOX() {
-		UI_BACKGROUND_COLOR((V4F32{ 0.2F, 0.2F, 0.2F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 3\n"); });
-		UI_BACKGROUND_COLOR((V4F32{ 0.4F, 0.4F, 0.4F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 3\n"); });
-		UI_BACKGROUND_COLOR((V4F32{ 0.6F, 0.6F, 0.6F, 1.0F }))
-			button(Textures::simpleWhite, [](Box* box) { print("Clicked 3\n"); });
 	}
 }
 
@@ -210,7 +165,6 @@ U32 run_dawdle() {
 		
 		UI::modificationLock.lock_write();
 		primaryGraph.init();
-		//build_test_ui();
 		NodeUI::init(&primaryGraph);
 		UI::modificationLock.unlock_write();
 	}

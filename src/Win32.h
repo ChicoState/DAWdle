@@ -152,7 +152,7 @@ enum Key {
 	X(PeekMessageA)\
 	X(DefWindowProcA)\
 	X(PostQuitMessage)\
-	X(RegisterClassA)\
+	X(RegisterClassExA)\
 	X(CreateWindowExA)\
 	X(LoadImageA)\
 	X(SendMessageA)\
@@ -457,11 +457,15 @@ LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			framebufferHeight = rect.bottom - rect.top;
 			shouldRecreateSwapchain = true;
 		}
+		result = pDefWindowProcA(hwnd, uMsg, wParam, lParam);
 	} break;
 	case WM_PAINT: {
-		result = pDefWindowProcA(hwnd, uMsg, wParam, lParam);
 		resizeDrawCallback();
+		result = pDefWindowProcA(hwnd, uMsg, wParam, lParam);
 		//pInvalidateRect(window, NULL, NULL);
+	} break;
+	case WM_ERASEBKGND: {
+		result = 1;
 	} break;
 	case WM_CLOSE: {
 		windowShouldClose = true;
@@ -491,14 +495,21 @@ B32 init(U32 width, U32 height, void (*resizeDrawCallbackIn)(void), void (*keybo
 		USER32_FUNCTIONS
 #undef X
 
-		WNDCLASSA windowClass{};
+
+		HANDLE icon = pLoadImageA(instance, "./resources/textures/DAWdle.ico", IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_LOADFROMFILE);
+
+		WNDCLASSEXA windowClass{};
+		windowClass.cbSize = sizeof(WNDCLASSEXA);
 		windowClass.lpfnWndProc = window_callback;
 		windowClass.hInstance = instance;
 		windowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
-		windowClass.hIcon = pLoadIconA(NULL, IDI_APPLICATION);
+		windowClass.hIcon = HICON(icon);
+		windowClass.hIconSm = HICON(icon);
 		const char* className = "DAWdle";
 		windowClass.lpszClassName = className;
-		pRegisterClassA(&windowClass);
+		if (!pRegisterClassExA(&windowClass)) {
+			abort("RegisterClassExA failed");
+		}
 		window = pCreateWindowExA(0, className, "VkDAWdle", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, int(width), int(height), NULL, NULL, instance, NULL);
 		if (!window) {
 			success = false;
@@ -541,10 +552,6 @@ B32 init(U32 width, U32 height, void (*resizeDrawCallbackIn)(void), void (*keybo
 
 		currentCursorType = CURSOR_TYPE_POINTER;
 		oldMouseX = oldMouseY = -1;
-
-		HANDLE icon = pLoadImageA(instance, "./resources/textures/DAWdle.ico", IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_LOADFROMFILE);
-		pSendMessageA(window, WM_SETICON, ICON_SMALL, LPARAM(icon));
-		pSendMessageA(window, WM_SETICON, ICON_BIG, LPARAM(icon));
 	}
 	return success;
 }
