@@ -1,4 +1,5 @@
 #pragma once
+#include <commdlg.h>
 #include "DrillLib.h"
 #include "UI.h"
 
@@ -18,7 +19,7 @@ void process_node(NodeHeader* node);
 #define NODE_WIDGETS X(INPUT, NodeWidgetInput)\
 	X(OUTPUT, NodeWidgetOutput)\
 	X(OSCILLOSCOPE, NodeWidgetOscilloscope)\
-	X(BUTTON, NodeWidgetButton)
+	X(SAMPLER_BUTTON, NodeWidgetSamplerButton)
 
 #define NODES \
 	X(TIME_IN, NodeTimeIn)\
@@ -337,13 +338,11 @@ struct NodeWidgetOscilloscope {
 
 	}
 };
-struct NodeWidgetButton {
+struct NodeWidgetSamplerButton {
 	NodeWidgetHeader header;
 
-	V2F32 connectionRenderPos;
-
 	void init() {
-		header.init(NODE_WIDGET_BUTTON);
+		header.init(NODE_WIDGET_SAMPLER_BUTTON);
 	}
 
 	void add_to_ui() {
@@ -353,7 +352,19 @@ struct NodeWidgetButton {
 			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
 			spacer(20.0F);
 			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
-				text_button("Load Sample"sa, [](Box*) {});
+				text_button("Load Sample"sa, [](Box*) {
+					char filename[512];
+					OPENFILENAMEA fileDialogOptions{};
+					fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
+					fileDialogOptions.hwndOwner = Win32::window;
+					fileDialogOptions.hInstance = Win32::instance;
+					fileDialogOptions.lpstrFilter = "Sound Files (*.flac; *.ogg; *.opus; *.wav)\0*.flac;*.ogg;*.opus;*.wav\0\0";
+					fileDialogOptions.lpstrFile = filename;
+					fileDialogOptions.nMaxFile = sizeof(filename);
+					inDialog = true;
+					GetOpenFileNameA(&fileDialogOptions);
+					inDialog = false;
+				});
 			spacer(20.0F);
 		}
 	}
@@ -363,7 +374,7 @@ union NodeWidget {
 	NodeWidgetInput input;
 	NodeWidgetOutput output;
 	NodeWidgetOscilloscope oscilloscope;
-	NodeWidgetButton button;
+	NodeWidgetSamplerButton file_dialog_button;
 };
 
 struct NodeGraph;
@@ -750,7 +761,7 @@ struct NodeSampler {
 		header.init(NODE_SAMPLER, "Sampler"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
-		header.add_widget()->button.init();
+		header.add_widget()->file_dialog_button.init();
 	}
 	void process() {
 		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
