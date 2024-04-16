@@ -3,10 +3,10 @@
 #include "DAWdle.h"
 
 
-extern "C" void __stdcall mainCRTStartup() {
+int main() {
 	if (!drill_lib_init()) {
-		ExitProcess(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 	U32 result = DAWdle::run_dawdle();
-	ExitProcess(result);
+	return result;
 }
