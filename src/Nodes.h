@@ -1,5 +1,7 @@
 #pragma once
 #include <commdlg.h>
+#include <libsoundwave/AudioDecoder.h>
+#include <filesystem>
 #include "DrillLib.h"
 #include "UI.h"
 
@@ -340,6 +342,10 @@ struct NodeWidgetOscilloscope {
 };
 struct NodeWidgetSamplerButton {
 	NodeWidgetHeader header;
+	char path[512];
+	F32* audioData = nullptr;
+	U64 numSamples = 0;
+	I32 sampleRate = 0;
 
 	void init() {
 		header.init(NODE_WIDGET_SAMPLER_BUTTON);
@@ -352,21 +358,44 @@ struct NodeWidgetSamplerButton {
 			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
 			spacer(20.0F);
 			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
-				text_button("Load Sample"sa, [](Box*) {
-					char filename[512];
+				text_button("Load Sample"sa, [](Box* box) {
+					NodeWidgetSamplerButton& button = *reinterpret_cast<NodeWidgetSamplerButton*>(box->userData[1]);
+
 					OPENFILENAMEA fileDialogOptions{};
 					fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
 					fileDialogOptions.hwndOwner = Win32::window;
 					fileDialogOptions.hInstance = Win32::instance;
 					fileDialogOptions.lpstrFilter = "Sound Files (*.flac; *.ogg; *.opus; *.wav)\0*.flac;*.ogg;*.opus;*.wav\0\0";
-					fileDialogOptions.lpstrFile = filename;
-					fileDialogOptions.nMaxFile = sizeof(filename);
+					fileDialogOptions.lpstrFile = button.path;
+					fileDialogOptions.nMaxFile = sizeof(button.path);
 					inDialog = true;
 					GetOpenFileNameA(&fileDialogOptions);
 					inDialog = false;
-				});
+
+					button.loadFromFile();
+				}).unsafeBox->userData[1] = UPtr(this);
 			spacer(20.0F);
 		}
+	}
+
+	void loadFromFile() {
+		if (!std::filesystem::exists(path)) return;
+
+		soundwave::SoundwaveIO loader;
+		auto data = std::make_unique<soundwave::AudioData>();
+		loader.Load(data.get(), path);
+
+		if (data->channelCount == 2) {
+			numSamples = data->samples.size() / 2;
+			audioData = new F32[numSamples];
+			soundwave::StereoToMono(data->samples.data(), audioData, data->samples.size());
+		}
+		else {
+			numSamples = data->samples.size();
+			audioData = new F32[numSamples];
+			memcpy(audioData, data->samples.data(), data->samples.size() * sizeof(F32));
+		}
+		sampleRate = data->sampleRate;
 	}
 };
 union NodeWidget {
@@ -476,6 +505,9 @@ struct NodeHeader {
 	}
 	NodeWidgetInput* get_input(U32 idx) {
 		return reinterpret_cast<NodeWidgetInput*>(get_nth_of_type(NODE_WIDGET_INPUT, idx));
+	}
+	NodeWidgetSamplerButton* get_samplerbutton(U32 idx) {
+		return reinterpret_cast<NodeWidgetSamplerButton*>(get_nth_of_type(NODE_WIDGET_SAMPLER_BUTTON, idx));
 	}
 
 	UI::Box* add_to_ui();
@@ -753,6 +785,7 @@ struct NodeOscilloscope {
 		Box* box = header.add_to_ui();
 	}
 };
+#include <iostream>
 struct NodeSampler {
 	NodeHeader header;
 	static const U32 TIME_INPUT_IDX = 0;
@@ -764,10 +797,19 @@ struct NodeSampler {
 		header.add_widget()->file_dialog_button.init();
 	}
 	void process() {
+		NodeWidgetSamplerButton& button = *header.get_samplerbutton(0);
+		if (!button.audioData) return;
 		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
 		NodeIOValue& output = header.get_output(0)->value;
 		for (U32 i = 0; i < output.bufferLength; i++) {
-			output.buffer[i] = 0.0;
+			F64 timeVal = time.buffer[i] * button.sampleRate; // should resample probably
+			while (timeVal >= button.numSamples) {
+				timeVal -= button.numSamples;
+			}
+			while (timeVal < 0) {
+				timeVal += button.numSamples;
+			}
+			output.buffer[i] = button.audioData[U64(timeVal)];
 		}
 	}
 	void add_to_ui() {

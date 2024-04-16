@@ -127,7 +127,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>kernel32.lib;comdlg32.lib;libsoundwave.lib</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;comdlg32.lib;User32.lib;libsoundwaved.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <StackReserveSize>4194304</StackReserveSize>
       <StackCommitSize>4194304</StackCommitSize>
@@ -163,7 +163,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>kernel32.lib;comdlg32.lib;libsoundwave.lib</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;comdlg32.lib;User32.lib;libsoundwave.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <StackReserveSize>4194304</StackReserveSize>
       <StackCommitSize>4194304</StackCommitSize>
