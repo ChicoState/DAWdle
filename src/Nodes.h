@@ -17,14 +17,16 @@ void process_node(NodeHeader* node);
 
 #define NODE_WIDGETS X(INPUT, NodeWidgetInput)\
 	X(OUTPUT, NodeWidgetOutput)\
-	X(OSCILLOSCOPE, NodeWidgetOscilloscope)
+	X(OSCILLOSCOPE, NodeWidgetOscilloscope)\
+	X(BUTTON, NodeWidgetButton)
 
 #define NODES \
 	X(TIME_IN, NodeTimeIn)\
 	X(CHANNEL_OUT, NodeChannelOut)\
 	X(SINE, NodeSine)\
 	X(MATH, NodeMathOp)\
-	X(OSCILLOSCOPE, NodeOscilloscope)
+	X(OSCILLOSCOPE, NodeOscilloscope)\
+	X(SAMPLER, NodeSampler)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -335,11 +337,33 @@ struct NodeWidgetOscilloscope {
 
 	}
 };
+struct NodeWidgetButton {
+	NodeWidgetHeader header;
+
+	V2F32 connectionRenderPos;
+
+	void init() {
+		header.init(NODE_WIDGET_BUTTON);
+	}
+
+	void add_to_ui() {
+		using namespace UI;
+		UI_RBOX() {
+			workingBox.unsafeBox->backgroundColor = V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }.to_rgba8();
+			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
+			spacer(20.0F);
+			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
+				text_button("Load Sample"sa, [](Box*) {});
+			spacer(20.0F);
+		}
+	}
+};
 union NodeWidget {
 	NodeWidgetHeader header;
 	NodeWidgetInput input;
 	NodeWidgetOutput output;
 	NodeWidgetOscilloscope oscilloscope;
+	NodeWidgetButton button;
 };
 
 struct NodeGraph;
@@ -718,7 +742,28 @@ struct NodeOscilloscope {
 		Box* box = header.add_to_ui();
 	}
 };
+struct NodeSampler {
+	NodeHeader header;
+	static const U32 TIME_INPUT_IDX = 0;
 
+	void init() {
+		header.init(NODE_SAMPLER, "Sampler"sa);
+		header.add_widget()->output.init();
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->button.init();
+	}
+	void process() {
+		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
+		NodeIOValue& output = header.get_output(0)->value;
+		for (U32 i = 0; i < output.bufferLength; i++) {
+			output.buffer[i] = 0.0;
+		}
+	}
+	void add_to_ui() {
+		using namespace UI;
+		Box* box = header.add_to_ui();
+	}
+};
 union Node {
 	Node* freeListNextPtr;
 	NodeHeader header;

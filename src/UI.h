@@ -762,6 +762,23 @@ BoxHandle button(Textures::Texture& tex, BoxConsumer onClick) {
 	}
 	return box;
 }
+BoxHandle text_button(StrA text, BoxConsumer onClick) {
+	BoxHandle box = generic_box();
+	box.unsafeBox->flags = BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
+	box.unsafeBox->text = text;
+	box.unsafeBox->hoverCursor = Win32::CURSOR_TYPE_HAND;
+	box.unsafeBox->userData[0] = reinterpret_cast<UPtr>(onClick);
+	if (onClick) {
+		box.unsafeBox->actionCallback = [](Box* box, UserCommunication& com) {
+			if (com.leftClicked) {
+				reinterpret_cast<BoxConsumer>(box->userData[0])(box);
+				return ACTION_HANDLED;
+			}
+			return ACTION_PASS;
+			};
+	}
+	return box;
+}
 void expandable_down(StrA name) {
 	ubox([](Box* box, UserCommunication& com) { return ACTION_PASS; });
 	UI_LBOX(); // clickable to expand
