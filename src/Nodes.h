@@ -212,6 +212,10 @@ struct NodeWidgetOutput {
 	}
 
 	void add_to_ui();
+
+	void destroy() {
+
+	}
 };
 struct NodeWidgetInput {
 	NodeWidgetHeader header;
@@ -292,6 +296,10 @@ struct NodeWidgetInput {
 			}
 		}
 	}
+
+	void destroy() {
+
+	}
 };
 void NodeWidgetOutput::add_to_ui() {
 	using namespace UI;
@@ -337,6 +345,10 @@ struct NodeWidgetOscilloscope {
 	}
 
 	void add_to_ui() {
+
+	}
+
+	void destroy() {
 
 	}
 };
@@ -396,6 +408,10 @@ struct NodeWidgetSamplerButton {
 			memcpy(audioData, data->samples.data(), data->samples.size() * sizeof(F32));
 		}
 		sampleRate = data->sampleRate;
+	}
+
+	void destroy() {
+		delete audioData;
 	}
 };
 union NodeWidget {
@@ -462,10 +478,17 @@ struct NodeHeader {
 		selectedPrev = selectedNext = nullptr;
 		uiBox = UI::BoxHandle{};
 	}
+
 	void destroy() {
 		UI::free_box(uiBox);
 		for (NodeWidgetHeader* widget = widgetBegin; widget != nullptr;) {
 			NodeWidgetHeader* nextWidget = widget->next;
+#define X(enumName, typeName) case NODE_WIDGET_##enumName: reinterpret_cast<typeName*>(widget)->destroy(); break;
+			switch (widget->type) {
+				NODE_WIDGETS
+			default: break;
+			}
+#undef X
 			free_widget(reinterpret_cast<NodeWidget*>(widget));
 			widget = nextWidget;
 		}
