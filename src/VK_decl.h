@@ -25,7 +25,7 @@ typedef VkBool32(VKAPI_PTR* PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)(
 
 #define CHK_VK(cmd) { VkResult chkVK_Result = cmd; if(chkVK_Result != VK_SUCCESS){ ::VK::vulkan_failure(chkVK_Result, ""); } }
 #define CHK_VK_NOT_NULL(cmd, msg) if((cmd) == nullptr){ ::VK::vulkan_failure(VK_SUCCESS, msg); }
-#define VK_DEBUG 1
+#define VK_DEBUG 0
 namespace VK {
 #define VK_INSTANCE_FUNCTIONS X(vkGetDeviceProcAddr)\
 	X(vkGetDeviceQueue)\

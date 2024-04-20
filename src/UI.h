@@ -574,7 +574,9 @@ B32 mouse_input_for_box_recurse(Box* box, V2F32 pos, Win32::MouseButton button, 
 	ActionResult result = box->actionCallback(box, comm);
 	return result == ACTION_HANDLED;
 }
+bool inDialog = false;
 void handle_mouse_action(V2F32 pos, Win32::MouseButton button, Win32::MouseValue state) {
+	if (inDialog) return;
 	modificationLock.lock_write();
 	mouse_input_for_box_recurse(root.unsafeBox, pos, button, state, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
 	if (button != Win32::MOUSE_BUTTON_WHEEL && state.state == Win32::BUTTON_STATE_UP) {
@@ -601,6 +603,7 @@ B32 mouse_update_for_box_recurse(Box* box, V2F32 pos, V2F32 delta, V2F32 compute
 	Win32::set_cursor(box->hoverCursor);
 	return true;
 }
+
 void handle_mouse_update(V2F32 pos, V2F32 delta) {
 	modificationLock.lock_write();
 	Box* active = activeBox.get();
@@ -647,6 +650,7 @@ B32 keyboard_input_for_box_recurse(Box* box, V2F32 pos, Win32::Key key, Win32::B
 	return result == ACTION_HANDLED;
 }
 void handle_keyboard_action(V2F32 mousePos, Win32::Key key, Win32::ButtonState state) {
+	
 	modificationLock.lock_write();
 	if (Box* activeTextInput = activeTextBox.get()) {
 		if (state == Win32::BUTTON_STATE_DOWN) {
@@ -759,6 +763,23 @@ BoxHandle button(Textures::Texture& tex, BoxConsumer onClick) {
 			}
 			return ACTION_PASS;
 		};
+	}
+	return box;
+}
+BoxHandle text_button(StrA text, BoxConsumer onClick) {
+	BoxHandle box = generic_box();
+	box.unsafeBox->flags = BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
+	box.unsafeBox->text = text;
+	box.unsafeBox->hoverCursor = Win32::CURSOR_TYPE_HAND;
+	box.unsafeBox->userData[0] = reinterpret_cast<UPtr>(onClick);
+	if (onClick) {
+		box.unsafeBox->actionCallback = [](Box* box, UserCommunication& com) {
+			if (com.leftClicked) {
+				reinterpret_cast<BoxConsumer>(box->userData[0])(box);
+				return ACTION_HANDLED;
+			}
+			return ACTION_PASS;
+			};
 	}
 	return box;
 }
