@@ -378,7 +378,7 @@ struct NodeWidgetOscilloscope {
 		}
 	}
 
-	void updateWaveform(const F32* data, U32 size) {
+	void updateWaveform(const double* data, U32 size) {
 		size_t copySize = std::min((size_t)size, waveformBuffer.size());
 		std::copy_n(data, copySize, waveformBuffer.begin());
 	}
@@ -837,13 +837,13 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval(); 
-		F32* audioData = reinterpret_cast<F32*>(input.buffer);
+		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval();
+		double* audioDataDouble = input.buffer;
 		U32 bufferSize = input.bufferLength;
 		NodeWidgetOscilloscope* oscWidget = reinterpret_cast<NodeWidgetOscilloscope*>(header.get_nth_of_type(NODE_WIDGET_OSCILLOSCOPE, 0));
 		if (oscWidget) {
-			oscWidget->updateWaveform(audioData, bufferSize);
-			std::cout << "tada";
+			oscWidget->updateWaveform(input.buffer, bufferSize);
+			std::cout << "waveform updated.\n";
 		}
 		else {
 			std::cout << "Oscilloscope widget not found or not initialized.\n";
