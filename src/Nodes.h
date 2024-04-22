@@ -339,13 +339,48 @@ void NodeWidgetOutput::add_to_ui() {
 }
 struct NodeWidgetOscilloscope {
 	NodeWidgetHeader header;
+	std::vector<F32> waveformBuffer;
+	U32 sampleRate;
 
 	void init() {
 		header.init(NODE_WIDGET_OSCILLOSCOPE);
+		waveformBuffer.resize(PROCESS_BUFFER_SIZE, 0.0f);
+		sampleRate = 44100;
 	}
 
 	void add_to_ui() {
+		using namespace UI;
+		UI_RBOX() {
+			workingBox.unsafeBox->backgroundColor = V4F32{ 0.1F, 0.1F, 0.1F, 0.9F }.to_rgba8();
+			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
+			BoxHandle contentBox = generic_box();
+			contentBox.unsafeBox->backgroundColor = V4F32{ 0.0F, 0.0F, 0.0F, 1.0F }.to_rgba8();
+			contentBox.unsafeBox->flags |= BOX_FLAG_CUSTOM_DRAW;
+			contentBox.unsafeBox->minSize = V2F32{ 200.0F, 100.0F };
+			contentBox.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+				NodeWidgetOscilloscope& osc = *reinterpret_cast<NodeWidgetOscilloscope*>(box->userData[1]);
+				if (comm.tessellator) {
+					V2F32 origin = box->computedOffset;
+					F32 width = box->computedSize.x;
+					F32 height = box->computedSize.y;
+					for (size_t i = 0; i < osc.waveformBuffer.size() - 1; ++i) {
+						V2F32 points[2];
+						points[0].x = origin.x + (i / (F32)osc.waveformBuffer.size()) * width;
+						points[0].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
+						points[1].x = origin.x + ((i + 1) / (F32)osc.waveformBuffer.size()) * width;
+						points[1].y = origin.y + height / 2 + osc.waveformBuffer[i + 1] * height / 2;
+						comm.tessellator->ui_line_strip(points, 2, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, 0);
+					}
+				}
+				return UI::ACTION_HANDLED;
+				};
+			contentBox.unsafeBox->userData[1] = UPtr(this);
+		}
+	}
 
+	void updateWaveform(const F32* data, U32 size) {
+		size_t copySize = std::min((size_t)size, waveformBuffer.size());
+		std::copy_n(data, copySize, waveformBuffer.begin());
 	}
 
 	void destroy() {
@@ -794,6 +829,7 @@ struct NodeMathOp {
 };
 struct NodeOscilloscope {
 	NodeHeader header;
+	static const U32 TIME_INPUT_IDX = 0;
 
 	void init() {
 		header.init(NODE_OSCILLOSCOPE, "Oscilloscope"sa);
@@ -801,7 +837,17 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& val = header.get_input(0)->eval();
+		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval(); 
+		F32* audioData = reinterpret_cast<F32*>(input.buffer);
+		U32 bufferSize = input.bufferLength;
+		NodeWidgetOscilloscope* oscWidget = reinterpret_cast<NodeWidgetOscilloscope*>(header.get_nth_of_type(NODE_WIDGET_OSCILLOSCOPE, 0));
+		if (oscWidget) {
+			oscWidget->updateWaveform(audioData, bufferSize);
+			std::cout << "tada";
+		}
+		else {
+			std::cout << "Oscilloscope widget not found or not initialized.\n";
+		}
 	}
 	void add_to_ui() {
 		using namespace UI;
