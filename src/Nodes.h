@@ -360,7 +360,7 @@ struct NodeWidgetOscilloscope {
 			contentBox.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
 				NodeWidgetOscilloscope& osc = *reinterpret_cast<NodeWidgetOscilloscope*>(box->userData[1]);
 				if (comm.tessellator) {
-					V2F32 origin = box->computedOffset;
+					V2F32 origin = box->computedOffset + box->parent->computedOffset;
 					F32 width = box->computedSize.x;
 					F32 height = box->computedSize.y;
 					for (size_t i = 0; i < osc.waveformBuffer.size() - 1; ++i) {
@@ -386,7 +386,6 @@ struct NodeWidgetOscilloscope {
 	}
 
 	void destroy() {
-
 	}
 };
 struct NodeWidgetSamplerButton {
@@ -839,14 +838,12 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		print("does it get here ? ");
 		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval();
 		double* audioDataDouble = input.buffer;
 		U32 bufferSize = input.bufferLength;
 		NodeWidgetOscilloscope* oscWidget = reinterpret_cast<NodeWidgetOscilloscope*>(header.get_nth_of_type(NODE_WIDGET_OSCILLOSCOPE, 0));
 		if (oscWidget) {
 			oscWidget->updateWaveform(input.buffer, bufferSize);
-			print("waveform updated.\n");
 		}
 		else {
 			print("Oscilloscope widget not found or not initialized.\n");
