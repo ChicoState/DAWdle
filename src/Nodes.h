@@ -4,6 +4,7 @@
 #include <filesystem>
 #include "DrillLib.h"
 #include "UI.h"
+#include "ExpressionParser.h"
 
 namespace Nodes {
 
@@ -217,6 +218,7 @@ struct NodeWidgetOutput {
 
 	}
 };
+
 struct NodeWidgetInput {
 	NodeWidgetHeader header;
 	NodeWidgetHandle<NodeWidgetOutput> inputHandle;
@@ -225,10 +227,13 @@ struct NodeWidgetInput {
 
 	V2F32 connectionRenderPos;
 
+	tbrs::ByteProgram program;
+
 	void init(F64 defaultVal) {
 		header.init(NODE_WIDGET_INPUT);
 		defaultValue = defaultVal;
 		inputHandle = NodeWidgetHandle<NodeWidgetOutput>{};
+		program.init();
 	}
 
 	void connect(NodeWidgetOutput* outputWidget) {
@@ -239,8 +244,25 @@ struct NodeWidgetInput {
 		if (NodeWidgetOutput* input = inputHandle.get()) {
 			process_node(input->header.parent);
 			value = input->value;
+			if (program.valid) {
+				if (value.bufferMask == U32_MAX) {
+					for (U32 i = 0; i < value.bufferLength; i += 4) {
+						_mm256_store_pd(value.buffer + i, interpret(program, _mm256_load_pd(value.buffer + i)));
+					}
+				}
+				else {
+					tbrs::AVX2 result = interpret(program, _mm256_load_pd(value.buffer));
+					_mm256_store_pd(value.buffer, result);
+					_mm256_store_pd(value.buffer + 4, result);
+				}
+			}
 		} else {
 			value.set_scalar(defaultValue);
+			if (program.valid) {
+				tbrs::AVX2 result = interpret(program, _mm256_load_pd(value.buffer));
+				_mm256_store_pd(value.buffer, result);
+				_mm256_store_pd(value.buffer + 4, result);
+			}
 		}
 		return value;
 	}
@@ -252,13 +274,11 @@ struct NodeWidgetInput {
 			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
 			spacer(6.0F);
 			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
-			text_input("Input Number"sa, ""sa, [](Box* box) {
+			text_input("Input Expression"sa, ""sa, [](Box* box) {
 				NodeWidgetInput& input = *reinterpret_cast<NodeWidgetInput*>(box->userData[1]);
 				if (!input.inputHandle.get()) {
 					StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
-					if (ParseTools::parse_f64(&input.defaultValue, &parseStr)) {
-						input.value.set_scalar(input.defaultValue);
-					}
+					tbrs::parse_program(&input.program, parseStr);
 				}
 			}).unsafeBox->userData[1] = UPtr(this);
 			UI_SIZE((V2F32{ 8.0F, 8.0F })) {
@@ -298,7 +318,7 @@ struct NodeWidgetInput {
 	}
 
 	void destroy() {
-
+		program.destroy();
 	}
 };
 void NodeWidgetOutput::add_to_ui() {

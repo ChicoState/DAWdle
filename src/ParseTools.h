@@ -48,12 +48,6 @@ B32 parse_f64(F64* f64Out, StrA* str) {
 
 	// Parse the raw numbers
 
-	B32 isNegative = false;
-	if (src[0] == '-' || src[0] == '+') {
-		isNegative = src[0] == '-';
-		src++, srcLen--;
-	}
-
 	U64 number = 0;
 	U32 significandDigitCount = 0;
 	U32 totalDigitCount = 0;
@@ -121,11 +115,11 @@ B32 parse_f64(F64* f64Out, StrA* str) {
 	// Done parsing the raw numbers, convert them to an F64
 
 	if (number == 0 || exponent < -342) {
-		*f64Out = isNegative ? -0.0 : 0.0;
+		*f64Out = 0.0;
 		return true;
 	}
 	if (exponent > 308) {
-		*f64Out = isNegative ? -F64_INF : F64_INF;
+		*f64Out = F64_INF;
 		return true;
 	}
 
@@ -188,14 +182,14 @@ B32 parse_f64(F64* f64Out, StrA* str) {
 
 	if (expectedBinaryExponent <= -1022 - 64) {
 		// Too small for even a subnormal
-		*f64Out = isNegative ? -0.0 : 0.0;
+		*f64Out = 0.0;
 		return true;
 	}
 	if (expectedBinaryExponent <= -1022) {
 		// Subnormals
 		mostSignificantBits = ((mostSignificantBits >> U64(-1022 - expectedBinaryExponent + 1)) + 1ull) >> 1ull;
 		// Mask off bit 52, it's implicitly 1
-		*f64Out = bitcast<F64>(U64(isNegative) << 63ull | (mostSignificantBits & ~(1ull << 52ull)));
+		*f64Out = bitcast<F64>((mostSignificantBits & ~(1ull << 52ull)));
 		return true;
 	}
 
@@ -209,12 +203,12 @@ B32 parse_f64(F64* f64Out, StrA* str) {
 	}
 
 	if (expectedBinaryExponent > 1023) {
-		*f64Out = isNegative ? -F64_INF : F64_INF;
+		*f64Out = F64_INF;
 		return true;
 	}
 
 	// Mask off bit 52, it's implicitly 1
-	*f64Out = bitcast<F64>(U64(isNegative) << 63ull | U64(expectedBinaryExponent + 1023) << 52ull | (mostSignificantBits & ~(1ull << 52ull)));
+	*f64Out = bitcast<F64>(U64(expectedBinaryExponent + 1023) << 52ull | (mostSignificantBits & ~(1ull << 52ull)));
 	return true;
 }
 
