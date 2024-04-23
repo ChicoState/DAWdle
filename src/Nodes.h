@@ -379,8 +379,10 @@ struct NodeWidgetOscilloscope {
 	}
 
 	void updateWaveform(const double* data, U32 size) {
-		size_t copySize = std::min((size_t)size, waveformBuffer.size());
-		std::copy_n(data, copySize, waveformBuffer.begin());
+		size_t copySize = std::min(static_cast<size_t>(size), waveformBuffer.size());
+		for (size_t i = 0; i < copySize; ++i) {
+			waveformBuffer[i] = static_cast<float>(data[i]);
+		}
 	}
 
 	void destroy() {
@@ -837,16 +839,17 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
+		print("does it get here ? ");
 		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval();
 		double* audioDataDouble = input.buffer;
 		U32 bufferSize = input.bufferLength;
 		NodeWidgetOscilloscope* oscWidget = reinterpret_cast<NodeWidgetOscilloscope*>(header.get_nth_of_type(NODE_WIDGET_OSCILLOSCOPE, 0));
 		if (oscWidget) {
 			oscWidget->updateWaveform(input.buffer, bufferSize);
-			std::cout << "waveform updated.\n";
+			print("waveform updated.\n");
 		}
 		else {
-			std::cout << "Oscilloscope widget not found or not initialized.\n";
+			print("Oscilloscope widget not found or not initialized.\n");
 		}
 	}
 	void add_to_ui() {
@@ -930,6 +933,29 @@ void process_node(NodeHeader* node) {
 		}
 	}
 	make_node_io_consistent(inputs.data, inputs.size, outputs.data, outputs.size);
+
+	switch (node->type) {
+	case NODE_TIME_IN:
+		reinterpret_cast<NodeTimeIn*>(node)->process();
+		break;
+	case NODE_CHANNEL_OUT:
+		reinterpret_cast<NodeChannelOut*>(node)->process();
+		break;
+	case NODE_SINE:
+		reinterpret_cast<NodeSine*>(node)->process();
+		break;
+	case NODE_MATH:
+		reinterpret_cast<NodeMathOp*>(node)->process();
+		break;
+	case NODE_OSCILLOSCOPE:
+		reinterpret_cast<NodeOscilloscope*>(node)->process();
+		break;
+	case NODE_SAMPLER:
+		reinterpret_cast<NodeSampler*>(node)->process();
+		break;
+	default:
+		break;
+	}
 	
 #define X(enumName, typeName) case NODE_##enumName: reinterpret_cast<typeName*>(node)->process(); break;
 	switch (node->type) {
@@ -988,6 +1014,7 @@ struct NodeGraph {
 		}
 		return *node;
 	}
+
 	void select_all() {
 		selectedFirst = nodesFirst;
 		selectedLast = nodesLast;
@@ -1047,6 +1074,10 @@ struct NodeGraph {
 			node->hasProcessed = false;
 		}
 		memset(outputBuf, 0, PROCESS_BUFFER_SIZE * sizeof(F32));
+		for (NodeHeader* node = nodesFirst; node; node = node->next) {
+			node->hasProcessed = false;
+			process_node(node);
+		}
 		for (NodeChannelOut* output = outputsFirst; output; output = output->outputNext) {
 			process_node(&output->header);
 			U32 bufSize;
