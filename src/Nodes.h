@@ -4,6 +4,7 @@
 #include <filesystem>
 #include "DrillLib.h"
 #include "UI.h"
+#include "ExpressionParser.h"
 
 namespace Nodes {
 
@@ -217,6 +218,7 @@ struct NodeWidgetOutput {
 
 	}
 };
+
 struct NodeWidgetInput {
 	NodeWidgetHeader header;
 	NodeWidgetHandle<NodeWidgetOutput> inputHandle;
@@ -225,24 +227,17 @@ struct NodeWidgetInput {
 
 	V2F32 connectionRenderPos;
 
+	tbrs::ByteProgram program;
+
 	void init(F64 defaultVal) {
 		header.init(NODE_WIDGET_INPUT);
 		defaultValue = defaultVal;
 		inputHandle = NodeWidgetHandle<NodeWidgetOutput>{};
+		program.init();
 	}
 
 	void connect(NodeWidgetOutput* outputWidget) {
 		inputHandle = NodeWidgetHandle<NodeWidgetOutput>{ outputWidget, outputWidget->header.generation };
-	}
-
-	NodeIOValue& eval() {
-		if (NodeWidgetOutput* input = inputHandle.get()) {
-			process_node(input->header.parent);
-			value = input->value;
-		} else {
-			value.set_scalar(defaultValue);
-		}
-		return value;
 	}
 
 	void add_to_ui() {
@@ -252,14 +247,10 @@ struct NodeWidgetInput {
 			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
 			spacer(6.0F);
 			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
-			text_input("Input Number"sa, ""sa, [](Box* box) {
+			text_input("Input Expression"sa, ""sa, [](Box* box) {
 				NodeWidgetInput& input = *reinterpret_cast<NodeWidgetInput*>(box->userData[1]);
-				if (!input.inputHandle.get()) {
-					StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
-					if (ParseTools::parse_f64(&input.defaultValue, &parseStr)) {
-						input.value.set_scalar(input.defaultValue);
-					}
-				}
+				StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
+				tbrs::parse_program(&input.program, parseStr);
 			}).unsafeBox->userData[1] = UPtr(this);
 			UI_SIZE((V2F32{ 8.0F, 8.0F })) {
 				Box* connector = generic_box().unsafeBox;
@@ -298,7 +289,7 @@ struct NodeWidgetInput {
 	}
 
 	void destroy() {
-
+		program.destroy();
 	}
 };
 void NodeWidgetOutput::add_to_ui() {
@@ -599,7 +590,7 @@ struct NodeChannelOut {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		header.get_input(0)->eval();
+
 	}
 	F64* get_output_buffer(U32* lengthOut, U32* maskOut) {
 		NodeIOValue& val = header.get_input(0)->value;
@@ -628,8 +619,8 @@ struct NodeSine {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
-		NodeIOValue& frequency = header.get_input(FREQUENCY_INPUT_IDX)->eval();
+		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
+		NodeIOValue& frequency = header.get_input(FREQUENCY_INPUT_IDX)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 		NodeIOValue* inputs[]{ &time, &frequency };
 		NodeIOValue* outputs[]{ &output };
@@ -843,7 +834,7 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval();
+		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->value;
 		double* audioDataDouble = input.buffer;
 		U32 bufferSize = input.bufferLength;
 		NodeWidgetOscilloscope* oscWidget = reinterpret_cast<NodeWidgetOscilloscope*>(header.get_nth_of_type(NODE_WIDGET_OSCILLOSCOPE, 0));
@@ -859,7 +850,6 @@ struct NodeOscilloscope {
 		Box* box = header.add_to_ui();
 	}
 };
-#include <iostream>
 struct NodeSampler {
 	NodeHeader header;
 	static const U32 TIME_INPUT_IDX = 0;
@@ -873,7 +863,7 @@ struct NodeSampler {
 	void process() {
 		NodeWidgetSamplerButton& button = *header.get_samplerbutton(0);
 		if (!button.audioData) return;
-		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
+		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 		for (U32 i = 0; i < output.bufferLength; i++) {
 			F64 timeVal = time.buffer[i] * button.sampleRate; // should resample probably
@@ -929,7 +919,32 @@ void process_node(NodeHeader* node) {
 	ArenaArrayList<NodeIOValue*> outputs{ &audioArena };
 	for (NodeWidgetHeader* widget = node->widgetBegin; widget != nullptr; widget = widget->next) {
 		if (widget->type == NODE_WIDGET_INPUT) {
-			inputs.push_back(&reinterpret_cast<NodeWidgetInput*>(widget)->eval());
+			NodeWidgetInput* inWidget = reinterpret_cast<NodeWidgetInput*>(widget);
+			if (NodeWidgetOutput* input = inWidget->inputHandle.get()) {
+				process_node(input->header.parent);
+				inWidget->value = input->value;
+				if (inWidget->program.valid) {
+					if (inWidget->value.bufferMask == U32_MAX) {
+						for (U32 i = 0; i < inWidget->value.bufferLength; i += 4) {
+							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer + i)));
+						}
+					}
+					else {
+						tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer));
+						_mm256_store_pd(inWidget->value.buffer, result);
+						_mm256_store_pd(inWidget->value.buffer + 4, result);
+					}
+				}
+			}
+			else {
+				inWidget->value.set_scalar(inWidget->defaultValue);
+				if (inWidget->program.valid) {
+					tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer));
+					_mm256_store_pd(inWidget->value.buffer, result);
+					_mm256_store_pd(inWidget->value.buffer + 4, result);
+				}
+			}
+			inputs.push_back(&inWidget->value);
 		} else if (widget->type == NODE_WIDGET_OUTPUT) {
 			outputs.push_back(&reinterpret_cast<NodeWidgetOutput*>(widget)->value);
 		}

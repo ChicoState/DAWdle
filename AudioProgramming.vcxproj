@@ -184,6 +184,7 @@
     <ClInclude Include="src\DrillMath.h" />
     <ClInclude Include="src\DynamicVertexBuffer.h" />
     <ClInclude Include="src\DynamicVertexBuffer_decl.h" />
+    <ClInclude Include="src\ExpressionParser.h" />
     <ClInclude Include="src\MSDFGenerator.h" />
     <ClInclude Include="src\Nodes.h" />
     <ClInclude Include="src\NodeUI.h" />
