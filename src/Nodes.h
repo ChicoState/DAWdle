@@ -339,17 +339,58 @@ void NodeWidgetOutput::add_to_ui() {
 }
 struct NodeWidgetOscilloscope {
 	NodeWidgetHeader header;
+	F32* waveformBuffer;
+	U32 sampleRate;
+	size_t waveformBufferSize;
 
 	void init() {
 		header.init(NODE_WIDGET_OSCILLOSCOPE);
+		waveformBufferSize = PROCESS_BUFFER_SIZE;
+		waveformBuffer = new F32[waveformBufferSize];
+		std::fill_n(waveformBuffer, waveformBufferSize, 0.0f);
+		sampleRate = 44100;
 	}
 
 	void add_to_ui() {
+		using namespace UI;
+		UI_RBOX() {
+			workingBox.unsafeBox->backgroundColor = V4F32{ 0.1F, 0.1F, 0.1F, 0.9F }.to_rgba8();
+			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
+			BoxHandle contentBox = generic_box();
+			contentBox.unsafeBox->backgroundColor = V4F32{ 0.0F, 0.0F, 0.0F, 1.0F }.to_rgba8();
+			contentBox.unsafeBox->flags |= BOX_FLAG_CUSTOM_DRAW;
+			contentBox.unsafeBox->minSize = V2F32{ 200.0F, 100.0F };
+			contentBox.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+				NodeWidgetOscilloscope& osc = *reinterpret_cast<NodeWidgetOscilloscope*>(box->userData[1]);
+				if (comm.tessellator) {
+					V2F32 origin = box->computedOffset + box->parent->computedOffset;
+					F32 width = comm.renderArea.maxX - comm.renderArea.minX;
+					F32 height = comm.renderArea.maxY - comm.renderArea.minY;
+					for (size_t i = 0; i < osc.waveformBufferSize - 1; ++i) {
+						V2F32 points[2];
+						points[0].x = origin.x + (i / (F32)osc.waveformBufferSize) * width;
+						points[0].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
+						points[1].x = origin.x + ((i + 1) / (F32)osc.waveformBufferSize) * width;
+						points[1].y = origin.y + height / 2 + osc.waveformBuffer[i + 1] * height / 2;
+						comm.tessellator->ui_line_strip(points, 2, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+					}
+				}
+				return UI::ACTION_HANDLED;
+				};
+			contentBox.unsafeBox->userData[1] = UPtr(this);
+			spacer(20.0F);
+		}
+	}
 
+	void updateWaveform(const double* data, U32 size) {
+		size_t copySize = std::min(static_cast<size_t>(size), waveformBufferSize);
+		for (size_t i = 0; i < copySize; ++i) {
+			waveformBuffer[i] = static_cast<float>(data[i]);
+		}
 	}
 
 	void destroy() {
-
+		delete[] waveformBuffer;
 	}
 };
 struct NodeWidgetSamplerButton {
@@ -794,6 +835,7 @@ struct NodeMathOp {
 };
 struct NodeOscilloscope {
 	NodeHeader header;
+	static const U32 TIME_INPUT_IDX = 0;
 
 	void init() {
 		header.init(NODE_OSCILLOSCOPE, "Oscilloscope"sa);
@@ -801,7 +843,16 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& val = header.get_input(0)->eval();
+		NodeIOValue& input = header.get_input(TIME_INPUT_IDX)->eval();
+		double* audioDataDouble = input.buffer;
+		U32 bufferSize = input.bufferLength;
+		NodeWidgetOscilloscope* oscWidget = reinterpret_cast<NodeWidgetOscilloscope*>(header.get_nth_of_type(NODE_WIDGET_OSCILLOSCOPE, 0));
+		if (oscWidget) {
+			oscWidget->updateWaveform(input.buffer, bufferSize);
+		}
+		else {
+			print("Oscilloscope widget not found or not initialized.\n");
+		}
 	}
 	void add_to_ui() {
 		using namespace UI;
@@ -884,7 +935,6 @@ void process_node(NodeHeader* node) {
 		}
 	}
 	make_node_io_consistent(inputs.data, inputs.size, outputs.data, outputs.size);
-	
 #define X(enumName, typeName) case NODE_##enumName: reinterpret_cast<typeName*>(node)->process(); break;
 	switch (node->type) {
 	NODES
@@ -942,6 +992,7 @@ struct NodeGraph {
 		}
 		return *node;
 	}
+
 	void select_all() {
 		selectedFirst = nodesFirst;
 		selectedLast = nodesLast;
@@ -1001,6 +1052,10 @@ struct NodeGraph {
 			node->hasProcessed = false;
 		}
 		memset(outputBuf, 0, PROCESS_BUFFER_SIZE * sizeof(F32));
+		for (NodeHeader* node = nodesFirst; node; node = node->next) {
+			node->hasProcessed = false;
+			process_node(node);
+		}
 		for (NodeChannelOut* output = outputsFirst; output; output = output->outputNext) {
 			process_node(&output->header);
 			U32 bufSize;
