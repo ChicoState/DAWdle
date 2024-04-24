@@ -251,7 +251,7 @@ struct NodeWidgetInput {
 					}
 				}
 				else {
-					tbrs::AVX2 result = interpret(program, _mm256_load_pd(value.buffer));
+					tbrs::AVX2D result = interpret(program, _mm256_load_pd(value.buffer));
 					_mm256_store_pd(value.buffer, result);
 					_mm256_store_pd(value.buffer + 4, result);
 				}
@@ -259,7 +259,7 @@ struct NodeWidgetInput {
 		} else {
 			value.set_scalar(defaultValue);
 			if (program.valid) {
-				tbrs::AVX2 result = interpret(program, _mm256_load_pd(value.buffer));
+				tbrs::AVX2D result = interpret(program, _mm256_load_pd(value.buffer));
 				_mm256_store_pd(value.buffer, result);
 				_mm256_store_pd(value.buffer + 4, result);
 			}
@@ -896,7 +896,7 @@ void process_node(NodeHeader* node) {
 	ArenaArrayList<NodeIOValue*> outputs{ &audioArena };
 	for (NodeWidgetHeader* widget = node->widgetBegin; widget != nullptr; widget = widget->next) {
 		if (widget->type == NODE_WIDGET_INPUT) {
-			inputs.push_back(&reinterpret_cast<NodeWidgetInput*>(widget)->eval());
+			inputs.push_back(&reinterpret_cast<NodeWidgetInput*>(widget)->value);
 		} else if (widget->type == NODE_WIDGET_OUTPUT) {
 			outputs.push_back(&reinterpret_cast<NodeWidgetOutput*>(widget)->value);
 		}

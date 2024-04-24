@@ -276,11 +276,11 @@ namespace tbrs {
 		*program = compile(std::move(ast.value()));
 	}
 
-	using AVX2 = __m256d;
+	using AVX2D = __m256d;
 
-	AVX2 interpret(ByteProgram program, AVX2 input) {
-		std::stack<AVX2> stack;
-		AVX2 op1, op2;
+	AVX2D interpret(ByteProgram program, AVX2D input) {
+		std::stack<AVX2D> stack;
+		AVX2D op1, op2;
 		U64 constIdx = 0;
 		for (U32 i = 0; i < program.len; i++) {
 			switch (program.code[i]) {
