@@ -361,20 +361,21 @@ struct NodeWidgetOscilloscope {
 				NodeWidgetOscilloscope& osc = *reinterpret_cast<NodeWidgetOscilloscope*>(box->userData[1]);
 				if (comm.tessellator) {
 					V2F32 origin = box->computedOffset + box->parent->computedOffset;
-					F32 width = box->computedSize.x;
-					F32 height = box->computedSize.y;
+					F32 width = comm.renderArea.maxX - comm.renderArea.minX;
+					F32 height = comm.renderArea.maxY - comm.renderArea.minY;
 					for (size_t i = 0; i < osc.waveformBuffer.size() - 1; ++i) {
 						V2F32 points[2];
 						points[0].x = origin.x + (i / (F32)osc.waveformBuffer.size()) * width;
 						points[0].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
 						points[1].x = origin.x + ((i + 1) / (F32)osc.waveformBuffer.size()) * width;
 						points[1].y = origin.y + height / 2 + osc.waveformBuffer[i + 1] * height / 2;
-						comm.tessellator->ui_line_strip(points, 2, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, 0);
+						comm.tessellator->ui_line_strip(points, 2, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 					}
 				}
 				return UI::ACTION_HANDLED;
 				};
 			contentBox.unsafeBox->userData[1] = UPtr(this);
+			spacer(20.0F);
 		}
 	}
 
@@ -386,6 +387,7 @@ struct NodeWidgetOscilloscope {
 	}
 
 	void destroy() {
+
 	}
 };
 struct NodeWidgetSamplerButton {
@@ -930,30 +932,6 @@ void process_node(NodeHeader* node) {
 		}
 	}
 	make_node_io_consistent(inputs.data, inputs.size, outputs.data, outputs.size);
-
-	switch (node->type) {
-	case NODE_TIME_IN:
-		reinterpret_cast<NodeTimeIn*>(node)->process();
-		break;
-	case NODE_CHANNEL_OUT:
-		reinterpret_cast<NodeChannelOut*>(node)->process();
-		break;
-	case NODE_SINE:
-		reinterpret_cast<NodeSine*>(node)->process();
-		break;
-	case NODE_MATH:
-		reinterpret_cast<NodeMathOp*>(node)->process();
-		break;
-	case NODE_OSCILLOSCOPE:
-		reinterpret_cast<NodeOscilloscope*>(node)->process();
-		break;
-	case NODE_SAMPLER:
-		reinterpret_cast<NodeSampler*>(node)->process();
-		break;
-	default:
-		break;
-	}
-	
 #define X(enumName, typeName) case NODE_##enumName: reinterpret_cast<typeName*>(node)->process(); break;
 	switch (node->type) {
 	NODES
