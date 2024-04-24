@@ -576,7 +576,7 @@ struct NodeChannelOut {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		header.get_input(0)->eval();
+
 	}
 	F64* get_output_buffer(U32* lengthOut, U32* maskOut) {
 		NodeIOValue& val = header.get_input(0)->value;
@@ -605,8 +605,8 @@ struct NodeSine {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
-		NodeIOValue& frequency = header.get_input(FREQUENCY_INPUT_IDX)->eval();
+		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
+		NodeIOValue& frequency = header.get_input(FREQUENCY_INPUT_IDX)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 		NodeIOValue* inputs[]{ &time, &frequency };
 		NodeIOValue* outputs[]{ &output };
@@ -819,7 +819,7 @@ struct NodeOscilloscope {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-		NodeIOValue& val = header.get_input(0)->eval();
+
 	}
 	void add_to_ui() {
 		using namespace UI;
@@ -840,7 +840,7 @@ struct NodeSampler {
 	void process() {
 		NodeWidgetSamplerButton& button = *header.get_samplerbutton(0);
 		if (!button.audioData) return;
-		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->eval();
+		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 		for (U32 i = 0; i < output.bufferLength; i++) {
 			F64 timeVal = time.buffer[i] * button.sampleRate; // should resample probably
@@ -896,7 +896,7 @@ void process_node(NodeHeader* node) {
 	ArenaArrayList<NodeIOValue*> outputs{ &audioArena };
 	for (NodeWidgetHeader* widget = node->widgetBegin; widget != nullptr; widget = widget->next) {
 		if (widget->type == NODE_WIDGET_INPUT) {
-			inputs.push_back(&reinterpret_cast<NodeWidgetInput*>(widget)->value);
+			inputs.push_back(&reinterpret_cast<NodeWidgetInput*>(widget)->eval());
 		} else if (widget->type == NODE_WIDGET_OUTPUT) {
 			outputs.push_back(&reinterpret_cast<NodeWidgetOutput*>(widget)->value);
 		}
