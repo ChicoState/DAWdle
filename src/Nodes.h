@@ -276,10 +276,8 @@ struct NodeWidgetInput {
 			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
 			text_input("Input Expression"sa, ""sa, [](Box* box) {
 				NodeWidgetInput& input = *reinterpret_cast<NodeWidgetInput*>(box->userData[1]);
-				if (!input.inputHandle.get()) {
-					StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
-					tbrs::parse_program(&input.program, parseStr);
-				}
+				StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
+				tbrs::parse_program(&input.program, parseStr);
 			}).unsafeBox->userData[1] = UPtr(this);
 			UI_SIZE((V2F32{ 8.0F, 8.0F })) {
 				Box* connector = generic_box().unsafeBox;

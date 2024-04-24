@@ -27,7 +27,7 @@ namespace tbrs {
 	}
 
 	bool parse_dollardollar(StrA* parseStr) {
-		if (parseStr->length >= 2 && parseStr->str[0] == parseStr->str[1] == '$') {
+		if (parseStr->length >= 2 && parseStr->str[0] == '$' && parseStr->str[1] == '$') {
 			parseStr->str += 2;
 			parseStr->length -= 2;
 			return true;
@@ -128,7 +128,7 @@ namespace tbrs {
 			tokens.operators.pop();
 			result = parse(tokens);
 			if (!result.has_value()) return std::nullopt;
-			result = std::make_unique<Node>('-', std::make_unique<Node>(-1.0), std::move(result.value()));
+			result = std::make_unique<Node>('*', std::make_unique<Node>(-1.0), std::move(result.value()));
 			break;
 		case NUM:
 			result = std::make_unique<Node>(tokens.numbers.front());
