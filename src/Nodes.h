@@ -240,33 +240,6 @@ struct NodeWidgetInput {
 		inputHandle = NodeWidgetHandle<NodeWidgetOutput>{ outputWidget, outputWidget->header.generation };
 	}
 
-	NodeIOValue& eval() {
-		if (NodeWidgetOutput* input = inputHandle.get()) {
-			process_node(input->header.parent);
-			value = input->value;
-			if (program.valid) {
-				if (value.bufferMask == U32_MAX) {
-					for (U32 i = 0; i < value.bufferLength; i += 4) {
-						_mm256_store_pd(value.buffer + i, interpret(program, _mm256_load_pd(value.buffer + i)));
-					}
-				}
-				else {
-					tbrs::AVX2D result = interpret(program, _mm256_load_pd(value.buffer));
-					_mm256_store_pd(value.buffer, result);
-					_mm256_store_pd(value.buffer + 4, result);
-				}
-			}
-		} else {
-			value.set_scalar(defaultValue);
-			if (program.valid) {
-				tbrs::AVX2D result = interpret(program, _mm256_load_pd(value.buffer));
-				_mm256_store_pd(value.buffer, result);
-				_mm256_store_pd(value.buffer + 4, result);
-			}
-		}
-		return value;
-	}
-
 	void add_to_ui() {
 		using namespace UI;
 		UI_RBOX() {
@@ -896,7 +869,32 @@ void process_node(NodeHeader* node) {
 	ArenaArrayList<NodeIOValue*> outputs{ &audioArena };
 	for (NodeWidgetHeader* widget = node->widgetBegin; widget != nullptr; widget = widget->next) {
 		if (widget->type == NODE_WIDGET_INPUT) {
-			inputs.push_back(&reinterpret_cast<NodeWidgetInput*>(widget)->eval());
+			NodeWidgetInput* inWidget = reinterpret_cast<NodeWidgetInput*>(widget);
+			if (NodeWidgetOutput* input = inWidget->inputHandle.get()) {
+				process_node(input->header.parent);
+				inWidget->value = input->value;
+				if (inWidget->program.valid) {
+					if (inWidget->value.bufferMask == U32_MAX) {
+						for (U32 i = 0; i < inWidget->value.bufferLength; i += 4) {
+							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer + i)));
+						}
+					}
+					else {
+						tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer));
+						_mm256_store_pd(inWidget->value.buffer, result);
+						_mm256_store_pd(inWidget->value.buffer + 4, result);
+					}
+				}
+			}
+			else {
+				inWidget->value.set_scalar(inWidget->defaultValue);
+				if (inWidget->program.valid) {
+					tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer));
+					_mm256_store_pd(inWidget->value.buffer, result);
+					_mm256_store_pd(inWidget->value.buffer + 4, result);
+				}
+			}
+			inputs.push_back(&inWidget->value);
 		} else if (widget->type == NODE_WIDGET_OUTPUT) {
 			outputs.push_back(&reinterpret_cast<NodeWidgetOutput*>(widget)->value);
 		}
