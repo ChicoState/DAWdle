@@ -339,12 +339,15 @@ void NodeWidgetOutput::add_to_ui() {
 }
 struct NodeWidgetOscilloscope {
 	NodeWidgetHeader header;
-	std::vector<F32> waveformBuffer;
+	F32* waveformBuffer;
 	U32 sampleRate;
+	size_t waveformBufferSize;
 
 	void init() {
 		header.init(NODE_WIDGET_OSCILLOSCOPE);
-		waveformBuffer.resize(PROCESS_BUFFER_SIZE, 0.0f);
+		waveformBufferSize = PROCESS_BUFFER_SIZE;
+		waveformBuffer = new F32[waveformBufferSize];
+		std::fill_n(waveformBuffer, waveformBufferSize, 0.0f);
 		sampleRate = 44100;
 	}
 
@@ -363,11 +366,11 @@ struct NodeWidgetOscilloscope {
 					V2F32 origin = box->computedOffset + box->parent->computedOffset;
 					F32 width = comm.renderArea.maxX - comm.renderArea.minX;
 					F32 height = comm.renderArea.maxY - comm.renderArea.minY;
-					for (size_t i = 0; i < osc.waveformBuffer.size() - 1; ++i) {
+					for (size_t i = 0; i < osc.waveformBufferSize - 1; ++i) {
 						V2F32 points[2];
-						points[0].x = origin.x + (i / (F32)osc.waveformBuffer.size()) * width;
+						points[0].x = origin.x + (i / (F32)osc.waveformBufferSize) * width;
 						points[0].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
-						points[1].x = origin.x + ((i + 1) / (F32)osc.waveformBuffer.size()) * width;
+						points[1].x = origin.x + ((i + 1) / (F32)osc.waveformBufferSize) * width;
 						points[1].y = origin.y + height / 2 + osc.waveformBuffer[i + 1] * height / 2;
 						comm.tessellator->ui_line_strip(points, 2, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 					}
@@ -380,14 +383,14 @@ struct NodeWidgetOscilloscope {
 	}
 
 	void updateWaveform(const double* data, U32 size) {
-		size_t copySize = std::min(static_cast<size_t>(size), waveformBuffer.size());
+		size_t copySize = std::min(static_cast<size_t>(size), waveformBufferSize);
 		for (size_t i = 0; i < copySize; ++i) {
 			waveformBuffer[i] = static_cast<float>(data[i]);
 		}
 	}
 
 	void destroy() {
-
+		delete[] waveformBuffer;
 	}
 };
 struct NodeWidgetSamplerButton {
