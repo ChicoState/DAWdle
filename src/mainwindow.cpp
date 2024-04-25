@@ -2,10 +2,12 @@
 
 #include "mainwindow.h"
 #include "decimalinput.h"
+#include "sampler.h"
 #include "wavenode.h"
 #include "audiooutput.h"
 #include "arithmeticnode.h"
 #include "pianoroll.h"
+#include "util.h"
 
 MainWindow::MainWindow() {
     // Create a toolbar
@@ -15,6 +17,7 @@ MainWindow::MainWindow() {
     // Register node models
     registry = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
     registry->registerModel<DecimalInput>("Input");
+    registry->registerModel<Sampler>("Input");
     registry->registerModel<AdditionNode>("Arithmetic");
     registry->registerModel<SubtractionNode>("Arithmetic");
     registry->registerModel<MultiplicationNode>("Arithmetic");
@@ -25,7 +28,7 @@ MainWindow::MainWindow() {
     registry->registerModel<SquareWave>("Oscillators");
     registry->registerModel<TriangleWave>("Oscillators");
     registry->registerModel<AudioOutput>("Output");
-    registry->registerModel<PianoRoll>("Input");
+    registry->registerModel<PianoRoll>("PianoRoll");
 
     // Create the graph and scene
     graph = new QtNodes::DataFlowGraphModel{ registry };
@@ -37,6 +40,7 @@ MainWindow::MainWindow() {
     // Create menu items
     QMenu* inputMenu = new QMenu("Input", this);
     inputMenu->addAction("Add Decimal", this, SLOT(createDecimalNode()));
+    inputMenu->addAction("Add Sampler", this, SLOT(createSamplerNode()));
 
     QMenu* audioMenu = new QMenu("Audio Generation", this);
     audioMenu->addAction("Add Sine Wave", this, SLOT(createSineWave()));
@@ -68,6 +72,9 @@ MainWindow::MainWindow() {
     QObject::connect(saveAction, &QAction::triggered, scene, &QtNodes::DataFlowGraphicsScene::save);
     QObject::connect(loadAction, &QAction::triggered, scene, &QtNodes::DataFlowGraphicsScene::load);
 
+    // Initialize PortAudio
+    initializePortAudio();
+
     // Set up the main window
     setCentralWidget(new QWidget);
     centralWidget()->setLayout(layout);
@@ -75,9 +82,21 @@ MainWindow::MainWindow() {
     showNormal();
 }
 
+MainWindow::~MainWindow() {
+    cleanupPortAudio();
+}
+
+PaStream* MainWindow::getStream() {
+    return m_paStream;
+}
+
 // Define slot functions for menu actions
 void MainWindow::createDecimalNode() {
     createNode<DecimalInput>();
+}
+
+void MainWindow::createSamplerNode() {
+    createNode<Sampler>();
 }
 
 void MainWindow::createSineWave() {
@@ -114,6 +133,78 @@ void MainWindow::createMultiplyNode() {
 
 void MainWindow::createDivideNode() {
     createNode<DivisionNode>();
+}
+
+void MainWindow::initializePortAudio() {
+    PaError err = Pa_Initialize();
+    if (err != paNoError) {
+        fprintf(stderr, "Pa_Initialize failed with error: %s\n", Pa_GetErrorText(err));
+        exit(EXIT_FAILURE);
+    }
+    static uint32_t apiRanking[]{
+        /*paInDevelopment*/   0xFFFFFFFF,
+        /*paDirectSound*/     10,
+        /*paMME*/             11,
+        /*paASIO*/            0,
+        /*paSoundManager*/    10,
+        /*paCoreAudio*/       10,
+        /*dummy value*/       0xFFFFFFFF,
+        /*paOSS*/             10,
+        /*paALSA*/            10,
+        /*paAL*/              10,
+        /*paBeOS*/            10,
+        /*paWDMKS*/           10,
+        /*paJACK*/            10,
+        /*paWASAPI*/          1,
+        /*paAudioScienceHPI*/ 10,
+        /*paAudioIO*/         10,
+        /*paPulseAudio*/      10
+    };
+
+
+    const PaHostApiInfo* apiInfo = Pa_GetHostApiInfo(0);
+    PaHostApiIndex hostAPIs = Pa_GetHostApiCount();
+    for (PaHostApiIndex api = 1; api < hostAPIs; api++) {
+        const PaHostApiInfo* checkAPIInfo = Pa_GetHostApiInfo(api);
+        if (checkAPIInfo->type < ARRAY_COUNT(apiRanking) && apiRanking[checkAPIInfo->type] < apiRanking[apiInfo->type]) {
+            apiInfo = checkAPIInfo;
+        }
+    }
+    qDebug("DAWdle using API: %s", apiInfo->name);
+
+    const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(apiInfo->defaultOutputDevice);
+    sampleRate = float(deviceInfo->defaultSampleRate);
+
+    PaStreamParameters outputParameters;
+    outputParameters.device = apiInfo->defaultOutputDevice;
+    outputParameters.channelCount = 1;
+    outputParameters.sampleFormat = paFloat32;
+    outputParameters.hostApiSpecificStreamInfo = nullptr;
+    outputParameters.suggestedLatency = deviceInfo->defaultLowOutputLatency;
+
+    err = Pa_OpenStream(
+        &m_paStream,
+        nullptr,
+        &outputParameters,
+        double(sampleRate),
+        paFramesPerBufferUnspecified,
+        paNoFlag,
+        &AudioOutput::paCallback,
+        nullptr
+    );
+
+    if (err != paNoError) {
+        fprintf(stderr, "Pa_OpenStream failed with error: %s\n", Pa_GetErrorText(err));
+        exit(EXIT_FAILURE);
+    }
+
+    Pa_SetStreamFinishedCallback(m_paStream, nullptr);
+}
+
+void MainWindow::cleanupPortAudio() {
+    Pa_StopStream(m_paStream);
+    Pa_CloseStream(m_paStream);
+    Pa_Terminate();
 }
 
 template <typename NodeType>

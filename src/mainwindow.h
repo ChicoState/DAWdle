@@ -12,14 +12,20 @@
 #include <QtNodes/GraphicsView>
 #include <QtNodes/NodeDelegateModelRegistry>
 
+#include <portaudio/portaudio.h>
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     MainWindow();
+    ~MainWindow();
+
+    static PaStream* getStream();
 
 private slots:
     void createDecimalNode();
+    void createSamplerNode();
     void createSineWave();
     void createSawWave();
     void createSquareWave();
@@ -35,11 +41,16 @@ private:
     template <typename NodeType>
     void createNode();
 
+    void initializePortAudio();
+    void cleanupPortAudio();
+
     QToolBar* toolbar;
     std::shared_ptr<QtNodes::NodeDelegateModelRegistry> registry;
     QtNodes::DataFlowGraphModel* graph;
     QtNodes::DataFlowGraphicsScene* scene;
     QtNodes::GraphicsView* view;
+
+    static inline PaStream* m_paStream;
 };
 
 #endif // MAINWINDOW_H

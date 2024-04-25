@@ -4,6 +4,7 @@
 #include <QtNodes/NodeDelegateModel>
 #include <QtWidgets/QPushButton>
 #include <QtCore/QObject>
+#include <QtCore/QTimer>
 #include <portaudio/portaudio.h>
 
 #include "bufferdata.h"
@@ -28,23 +29,21 @@ public:
 
     QWidget* embeddedWidget() override;
 
-private:
-    std::shared_ptr<BufferData> m_bufferData[2];
-    QPushButton* m_playButton;
-    int m_currentBuffer;
-    bool m_needsAnotherBuffer;
-
-    PaStream* m_paStream;
-
     static int paCallback(const void* inputBuffer, void* outputBuffer,
                           unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo* timeInfo,
                           PaStreamCallbackFlags statusFlags, void* userData);
 
-    void initializePortAudio();
-    void cleanupPortAudio();
+private:
+    std::shared_ptr<BufferData> m_bufferData[2];
+    QWidget* m_buttons;
+    QTimer* m_timer;
+    int m_currentBuffer;
+    bool m_needsAnotherBuffer;
+    bool m_playing;
 
 private slots:
     void playButtonClicked();
+    void pauseButtonClicked();
 };
 
 #endif
