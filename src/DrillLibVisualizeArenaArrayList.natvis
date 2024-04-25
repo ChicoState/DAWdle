@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="ArenaArrayList&lt;*&gt;">
+    <DisplayString Condition="size == 0">empty</DisplayString>
+    <DisplayString>{&amp;data[0], [size]}</DisplayString>
+    <Expand>
+      <Item Name="size">size,d</Item>
+      <Item Name="capacity">capacity,d</Item>
+      <ArrayItems>
+        <Size>size</Size>
+        <ValuePointer>&amp;data[0]</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>
