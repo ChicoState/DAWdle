@@ -1,7 +1,7 @@
 #pragma once
 
 #include "DrillLib.h"
-#include "ParseTools.h"
+#include "SerializeTools.h"
 #include "PNG.h"
 
 namespace MSDFGenerator {
@@ -396,9 +396,9 @@ Shape parse_shape(MemoryArena& arena, StrA shapeStr) {
 
 		args.clear();
 		F32 arg;
-		while (ParseTools::parse_f32(&arg, &cmdStr)) {
+		while (SerializeTools::parse_f32(&arg, &cmdStr)) {
 			args.push_back(arg);
-			while (cmdStr.length && (ParseTools::is_whitespace(cmdStr[0]) || cmdStr[0] == ',')) {
+			while (cmdStr.length && (SerializeTools::is_whitespace(cmdStr[0]) || cmdStr[0] == ',')) {
 				cmdStr.str++, cmdStr.length--;
 			}
 		}

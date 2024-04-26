@@ -36,7 +36,8 @@ Texture dropdownUp;
 Texture dropdownDown;
 Texture uiX;
 Texture nodeConnect;
-
+Texture uiIncrementLeft;
+Texture uiIncrementRight;
 
 ArenaArrayList<Texture*> allTextures;
 ArenaArrayList<VkDeviceMemory> memoryUsed;
@@ -195,6 +196,8 @@ void load_all() {
 	load_png(&dropdownDown, "resources/textures/dropdown_down.png"sa);
 	load_png(&uiX, "resources/textures/ui_x.png"sa);
 	load_png(&nodeConnect, "resources/textures/node_connect.png"sa);
+	load_png(&uiIncrementLeft, "resources/textures/ui_increment_left.png"sa);
+	load_png(&uiIncrementRight, "resources/textures/ui_increment_right.png"sa);
 	load_msdf(&fontAtlas, "resources/textures/font.ddf"sa);
 }
 

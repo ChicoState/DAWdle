@@ -961,7 +961,7 @@ BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
 				Box* textInput = box->next;
 				F64 num;
 				StrA textStr = StrA{ textInput->typedTextBuffer, textInput->numTypedCharacters };
-				if (SerializeTools::parse_f64(&num, &textStr)) {
+				if (SerializeTools::parse_f64(&num, &textStr) && SerializeTools::skip_whitespace(&textStr).is_empty()) {
 					num += bitcast<F64>(box->userData[1]);
 					textInput->numTypedCharacters = MAX_TEXT_INPUT;
 					SerializeTools::serialize_f64(textInput->typedTextBuffer, &textInput->numTypedCharacters, roundf64(num * 10000.0) / 10000.0);
@@ -1005,9 +1005,10 @@ BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
 				return ACTION_HANDLED;
 			}
 			if (comm.drag.x) {
+				println_float(132.0);
 				F64 num;
 				StrA textStr = StrA{ box->typedTextBuffer, box->numTypedCharacters };
-				if (SerializeTools::parse_f64(&num, &textStr)) {
+				if (SerializeTools::parse_f64(&num, &textStr) && SerializeTools::skip_whitespace(&textStr).is_empty()) {
 					num += bitcast<F64>(U64(box->userData[1])) * F64(comm.drag.x);
 					box->numTypedCharacters = MAX_TEXT_INPUT;
 					SerializeTools::serialize_f64(box->typedTextBuffer, &box->numTypedCharacters, roundf64(num * 10000.0) / 10000.0);
@@ -1025,7 +1026,7 @@ BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
 				Box* textInput = box->prev;
 				F64 num;
 				StrA textStr = StrA{ textInput->typedTextBuffer, textInput->numTypedCharacters };
-				if (SerializeTools::parse_f64(&num, &textStr)) {
+				if (SerializeTools::parse_f64(&num, &textStr) && SerializeTools::skip_whitespace(&textStr).is_empty()) {
 					num += bitcast<F64>(U64(box->userData[1]));
 					textInput->numTypedCharacters = MAX_TEXT_INPUT;
 					SerializeTools::serialize_f64(textInput->typedTextBuffer, &textInput->numTypedCharacters, roundf64(num * 10000.0) / 10000.0);

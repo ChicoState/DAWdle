@@ -190,7 +190,7 @@
     <ClInclude Include="src\MSDFGenerator.h" />
     <ClInclude Include="src\Nodes.h" />
     <ClInclude Include="src\NodeUI.h" />
-    <ClInclude Include="src\ParseTools.h" />
+    <ClInclude Include="src\SerializeTools.h" />
     <ClInclude Include="src\PNG.h" />
     <ClInclude Include="src\TextRenderer.h" />
     <ClInclude Include="src\Textures_decl.h" />
@@ -208,7 +208,7 @@
     <Natvis Include="src\DrillLibVisualizeStrA.natvis" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="src\ParseToolsPowerOf5Table.txt" />
+    <Text Include="src\SerializeToolsPowerOf5Table.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="resources\font.svg" />
