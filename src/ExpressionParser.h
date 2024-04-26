@@ -64,13 +64,14 @@ namespace tbrs {
 		while (parseStr.length > 0) {
 			F64 num;
 			Operator op;
-			if (ParseTools::parse_f64(&num, &parseStr)) {
-				result.tokens.push(NUM);
-				result.numbers.push(num);
-			}
-			else if (parse_op(&op, &parseStr)) {
+			
+			if (parse_op(&op, &parseStr)) {
 				result.tokens.push(OP);
 				result.operators.push(op);
+			}
+			else if (SerializeTools::parse_f64(&num, &parseStr)) {
+				result.tokens.push(NUM);
+				result.numbers.push(num);
 			}
 			else if (parse_dollardollar(&parseStr)) {
 				result.tokens.push(INPUT);
@@ -82,7 +83,7 @@ namespace tbrs {
 				result.tokens.push(RPAREN);
 			}
 			else return std::nullopt;
-			ParseTools::skip_whitespace(&parseStr);
+			SerializeTools::skip_whitespace(&parseStr);
 		}
 		return result;
 	}
@@ -259,7 +260,7 @@ namespace tbrs {
 	}
 
 	void parse_program(ByteProgram* program, StrA parseStr) {
-		ParseTools::skip_whitespace(&parseStr);
+		SerializeTools::skip_whitespace(&parseStr);
 		std::optional<Tokens> tokens = lex(parseStr);
 		if (!tokens.has_value()) {
 			program->valid = false;

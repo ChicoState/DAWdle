@@ -94,6 +94,49 @@ struct Panel {
 			if (comm.keyPressed == Win32::KEY_A) {
 				panel.nodeGraph->create_node<Nodes::NodeSampler>(mouseRelative);
 			}
+
+			if (comm.rightClickStart) {
+				UI_ADD_CONTEXT_MENU(BoxHandle{}, comm.mousePos) {
+					workingBox.unsafeBox->userData[0] = UPtr(panel.nodeGraph);
+					workingBox.unsafeBox->userData[1] = bitcast<U64>(mouseRelative);
+					text_button("Math"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeMathOp>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("Audio Out"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeChannelOut>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("Time In"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeTimeIn>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("Tone"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSine>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("Oscilloscope"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeOscilloscope>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("Sampler"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSampler>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					BoxHandle test = generic_box();
+					test.unsafeBox->flags |= BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION | BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
+					test.unsafeBox->text = "Another context menu"sa;
+					test.unsafeBox->userData[0] = UPtr(contextMenuBox.unsafeBox);
+					test.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+						if (comm.leftClickStart) {
+							BoxHandle parent{ reinterpret_cast<Box*>(box->userData[0]), reinterpret_cast<Box*>(box->userData[0])->generation };
+							UI_ADD_CONTEXT_MENU(parent, (V2F32{ 0.0F, box->computedParentRelativeOffset.y })) {
+								workingBox.unsafeBox->userData[0] = box->parent->userData[0];
+								workingBox.unsafeBox->userData[1] = box->parent->userData[1];
+								text_button("Sampler"sa, [](Box* box) {
+									reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSampler>(bitcast<V2F32>(box->parent->userData[1]));
+								});
+							}
+							return ACTION_HANDLED;
+						}
+						return ACTION_PASS;
+					};
+				}
+			}
 			return result;
 		};
 		content.unsafeBox->userData[0] = UPtr(this);

@@ -173,9 +173,9 @@ DEBUG_OPTIMIZE_OFF
 
 void print(const char* str);
 void print_integer(U64 num);
-void print_float(F32 f);
+void print_float(F64 f);
 void println_integer(U64 num);
-void println_float(F32 f);
+void println_float(F64 f);
 [[noreturn]] void abort(const char* message);
 
 #define RUNTIME_ASSERT(cond, msg) if(!(cond)) { abort(msg); }

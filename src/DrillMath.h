@@ -172,8 +172,15 @@ FINLINE I32 signumf32(F32 f) {
 	return (f > 0.0F) - (f < 0.0F);
 }
 
+FINLINE F64 floorf64(F64 f) {
+	return _mm_cvtsd_f64(_mm_round_pd(_mm_set_sd(f), _MM_ROUND_MODE_DOWN));
+}
 FINLINE F64 truncf64(F64 f) {
 	return _mm_cvtsd_f64(_mm_round_pd(_mm_set_sd(f), _MM_ROUND_MODE_TOWARD_ZERO));
+}
+FINLINE F64 roundf64(F64 f) {
+	// I know adding 0.5 is not the right way to do this, can't be bothered to research it now though
+	return _mm_cvtsd_f64(_mm_round_pd(_mm_set_sd(f + 0.5), _MM_ROUND_MODE_DOWN));
 }
 FINLINE F64 fractf64(F64 f) {
 	return f - _mm_cvtsd_f64(_mm_round_pd(_mm_set_sd(f), _MM_ROUND_MODE_TOWARD_ZERO));

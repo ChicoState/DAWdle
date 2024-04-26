@@ -283,6 +283,8 @@ struct Tessellator {
 			vertices[vertexCount - 2] = VK::UIVertex{ V3F32{ pos0.x, pos0.y, z}, tex0, packedColor, textureIndex, flags};
 			vertices[vertexCount - 1] = VK::UIVertex{ V3F32{ pos1.x, pos1.y, z}, tex1, packedColor, textureIndex, flags };
 
+			ensure_space_for(vertexCount * sizeof(VK::UIVertex), indexCount * sizeof(U32));
+
 			memcpy(vertexDataPointer + currentVertexByteCount, vertices, vertexCount * sizeof(VK::UIVertex));
 			U32 indexOffset = currentIndexByteCount / 4;
 			U32* indexPtr = indexDataPointer + indexOffset;
