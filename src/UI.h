@@ -26,6 +26,8 @@ ArenaArrayList<Flags32> defaultFlagsStack;
 #define UI_TEXT_BORDER_SPACING(newSpacing) DEFER_LOOP(textBorderSpacingStack.push_back(newSpacing), textBorderSpacingStack.pop_back())
 #define UI_FLAGS(newFlags) DEFER_LOOP(defaultFlagsStack.push_back(newFlags), defaultFlagsStack.pop_back())
 
+#define UI_WORKING_BOX(newBox) for (UI::BoxHandle oldWorkingBox = UI::workingBox, irrelevant = UI::workingBox = (newBox); oldWorkingBox.unsafeBox; UI::workingBox = oldWorkingBox, oldWorkingBox.unsafeBox = nullptr)
+
 const U32 MAX_CLIP_BOXES = 0x10000;
 ArenaArrayList<U32> clipBoxIndexStack;
 ArenaArrayList<Rng2F32> clipBoxStack;
@@ -57,6 +59,7 @@ struct UserCommunication {
 	Flags32 middleClickStart : 1;
 	Flags32 mouse4ClickStart : 1;
 	Flags32 mouse5ClickStart : 1;
+	Flags32 mouseHovered : 1;
 	Box* draggedTo;
 	V2F32 drag;
 	Win32::Key keyPressed;
@@ -66,6 +69,7 @@ struct UserCommunication {
 	Rng2F32 renderClipBox;
 	U32 clipBoxIndex;
 	F32 renderZ;
+	F32 scale;
 	B32 boxIsBeingDestroyed;
 };
 enum ActionResult : U32 {
@@ -85,7 +89,8 @@ enum BoxFlag : U32 {
 	BOX_FLAG_CLIP_CHILDREN = (1 << 7),
 	BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION = (1 << 8),
 	BOX_FLAG_CUSTOM_DRAW = (1 << 9),
-	BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS = (1 << 10)
+	BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS = (1 << 10),
+	BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION = (1 << 11)
 };
 typedef Flags32 BoxFlags;
 const F32 BOX_INF_SIZE = 100000.0F;
@@ -121,6 +126,7 @@ struct Box {
 	F32 zOffset;
 
 	StrA text;
+	StrA tooltipString;
 	// If typedTextBuffer is not null, text acts as a prompt for the user to type
 	char* typedTextBuffer;
 	U32 numTypedCharacters;
@@ -150,8 +156,12 @@ struct BoxHandle {
 BoxHandle root;
 BoxHandle workingBox;
 
+ArenaArrayList<BoxHandle> contextMenuStack;
+BoxHandle tooltip;
+
 // Hot is an element a user is about to interact with (mouse hovering over, keyboard selected it with tab, etc)
 BoxHandle hotBox;
+F64 hotBoxStartTimeSeconds;
 // Active is an element a user started an interaction with (mouse click down, keyboard enter down)
 BoxHandle activeBox;
 F32 activeBoxTotalScale;
@@ -245,8 +255,40 @@ void free_box(BoxHandle boxHandle) {
 void move_box_to_front(Box* box) {
 	if (box->parent) {
 		DLL_REMOVE(box, box->parent->childFirst, box->parent->childLast, prev, next);
-		DLL_INSERT_TAIL(box, box->parent->childFirst, box->parent->childLast, prev, next);
+		DLL_INSERT_HEAD(box, box->parent->childFirst, box->parent->childLast, prev, next);
 	}
+}
+
+void context_menu(BoxHandle parent, BoxHandle box, V2F32 pos) {
+	U32 newContextMenuStackSize = contextMenuStack.size;
+	if (Box* parentBox = parent.get()) {
+		for (I32 i = I32(contextMenuStack.size) - 1; i >= 0; i--) {
+			Box* contextMenuCurrentBox = contextMenuStack.data[i].get();
+			if (contextMenuCurrentBox == nullptr) {
+				newContextMenuStackSize = i;
+			} else if (contextMenuCurrentBox == parentBox) {
+				newContextMenuStackSize = i + 1;
+			}
+		}
+	} else {
+		newContextMenuStackSize = 0;
+	}
+	if (!box.get()) {
+		newContextMenuStackSize = 0;
+	}
+	for (U32 i = newContextMenuStackSize; i < contextMenuStack.size; i++) {
+		free_box(contextMenuStack.data[i]);
+	}
+	contextMenuStack.resize(newContextMenuStackSize);
+	if (Box* newMenu = box.get()) {
+		newMenu->contentOffset = pos;
+		newMenu->flags |= BOX_FLAG_FLOATING_X | BOX_FLAG_FLOATING_Y;
+		contextMenuStack.push_back(box);
+	}
+}
+
+void clear_context_menu() {
+	context_menu(BoxHandle{}, BoxHandle{}, V2F32{});
 }
 
 void init_ui() {
@@ -266,6 +308,8 @@ void init_ui() {
 	textBorderSpacingStack.push_back(4.0F);
 	defaultFlagsStack.reserve(16);
 	defaultFlagsStack.push_back(0);
+
+	contextMenuStack.reserve(16);
 
 	workingBox = root = alloc_box();
 	root.unsafeBox->flags |= BOX_FLAG_DONT_LAYOUT_TO_FIT_CHILDREN | BOX_FLAG_INVISIBLE;
@@ -425,6 +469,37 @@ void layout_boxes(U32 rootWidth, U32 rootHeight) {
 	root.unsafeBox->computedSize = V2F32{ F32(rootWidth), F32(rootHeight) };
 	solve_layout_conflicts_and_position_boxes_recurse(root.unsafeBox, root.unsafeBox->contentScale);
 	root.unsafeBox->computedParentRelativeOffset = V2F32{};
+
+	V2F32 contextBoxOffset{};
+	for (U32 i = 0; i < contextMenuStack.size; i++) {
+		if (Box* contextBox = contextMenuStack.data[i].get()) {
+			layout_boxes_recurse(contextBox);
+			solve_layout_conflicts_and_position_boxes_recurse(contextBox, contextBox->contentScale);
+			contextBox->computedParentRelativeOffset = contextBoxOffset;
+			contextBoxOffset = contextBox->contentOffset + contextBox->computedParentRelativeOffset + V2F32{ contextBox->computedSize.x, 0.0F };
+			// Clamp the box inside the render area
+			contextBox->computedParentRelativeOffset.x -= max(0.0F, contextBox->contentOffset.x + contextBox->computedParentRelativeOffset.x + contextBox->computedSize.x - rootWidth);
+			contextBox->computedParentRelativeOffset.x -= min(0.0F, contextBox->contentOffset.x + contextBox->computedParentRelativeOffset.x);
+			contextBox->computedParentRelativeOffset.y -= max(0.0F, contextBox->contentOffset.y + contextBox->computedParentRelativeOffset.y + contextBox->computedSize.y - rootHeight);
+			contextBox->computedParentRelativeOffset.y -= min(0.0F, contextBox->contentOffset.y + contextBox->computedParentRelativeOffset.y);
+		} else {
+			for (U32 j = i; j < contextMenuStack.size; j++) {
+				free_box(contextMenuStack.data[j]);
+			}
+			contextMenuStack.resize(i);
+			break;
+		}
+	}
+
+	if (Box* tooltipBox = tooltip.get()) {
+		layout_boxes_recurse(tooltipBox);
+		solve_layout_conflicts_and_position_boxes_recurse(tooltipBox, tooltipBox->contentScale);
+		// Clamp the box inside the render area
+		tooltipBox->computedParentRelativeOffset.x = -max(0.0F, tooltipBox->contentOffset.x + tooltipBox->computedSize.x - rootWidth);
+		tooltipBox->computedParentRelativeOffset.x -= min(0.0F, tooltipBox->contentOffset.x + tooltipBox->computedParentRelativeOffset.x);
+		tooltipBox->computedParentRelativeOffset.y = -max(0.0F, tooltipBox->contentOffset.y + tooltipBox->computedSize.y - rootHeight);
+		tooltipBox->computedParentRelativeOffset.y -= min(0.0F, tooltipBox->contentOffset.y + tooltipBox->computedParentRelativeOffset.y);
+	}
 }
 
 Rng2F32 compute_final_render_area_and_offset_for_children(V2F32* childrenOffset, Box* box, V2F32 parentComputedOffset, V2F32 offset, F32 scale) {
@@ -486,7 +561,7 @@ void draw_box(DynamicVertexBuffer::Tessellator& tes, Box* box, V2F32 mousePos, V
 			TextRenderer::draw_string_batched(tes, StrA{ box->typedTextBuffer, box->numTypedCharacters }, renderArea.minX + box->textBorderSpacing * scale, renderArea.minY + box->textBorderSpacing * scale, z, box->textSize * scale, box->textColor.to_v4f32(), clipBoxIndexStack.back() << 16);
 		}
 	}
-	for (Box* child = box->childFirst; child; child = child->next) {
+	for (Box* child = box->childLast; child; child = child->prev) {
 		draw_box(tes, child, mousePos, offset + childrenOffset, box->computedOffset, scale * box->contentScale, z + child->zOffset);
 	}
 	if (box->flags & BOX_FLAG_CUSTOM_DRAW) {
@@ -494,6 +569,7 @@ void draw_box(DynamicVertexBuffer::Tessellator& tes, Box* box, V2F32 mousePos, V
 		comm.mousePos = mousePos;
 		comm.tessellator = &tes;
 		comm.renderArea = renderArea;
+		comm.scale = scale;
 		comm.renderClipBox = clipBoxStack.back();
 		comm.clipBoxIndex = clipBoxIndexStack.back();
 		comm.renderZ = z;
@@ -517,20 +593,32 @@ void draw() {
 	clipBoxIndexStack.push_back(0);
 	clipBoxStack.clear();
 	clipBoxStack.push_back(infRange);
-	draw_box(tes, root.unsafeBox, Win32::get_mouse(), V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale, root.unsafeBox->zOffset);
+	V2F32 mousePos = Win32::get_mouse();
+	draw_box(tes, root.unsafeBox, mousePos, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale, root.unsafeBox->zOffset);
+	for (BoxHandle contextMenuHandle : contextMenuStack) {
+		if (Box* contextMenuBox = contextMenuHandle.get()) {
+			draw_box(tes, contextMenuBox, mousePos, V2F32{}, V2F32{}, 1.0F, 2.0F);
+		}
+	}
+	if (Box* tooltipBox = tooltip.get()) {
+		draw_box(tes, tooltipBox, mousePos, V2F32{}, V2F32{}, 1.0F, 1.0F);
+	}
 	tes.end_draw();
 	modificationLock.unlock_read();
 }
 
-B32 mouse_input_for_box_recurse(Box* box, V2F32 pos, Win32::MouseButton button, Win32::MouseValue state, V2F32 computedParentOffset, V2F32 offset, F32 scale) {
+B32 mouse_input_for_box_recurse(B32* anyContained, Box* box, V2F32 pos, Win32::MouseButton button, Win32::MouseValue state, V2F32 computedParentOffset, V2F32 offset, F32 scale) {
 	V2F32 childrenOffset;
 	Rng2F32 renderArea = compute_final_render_area_and_offset_for_children(&childrenOffset, box, computedParentOffset, offset, scale);
 	B32 mouseOutside = !rng_contains_point(renderArea, pos);
 	if (mouseOutside && box->flags & BOX_FLAG_CLIP_CHILDREN) {
 		return false;
 	}
+	if (anyContained && !mouseOutside) {
+		*anyContained = true;
+	}
 	for (Box* child = box->childFirst; child; child = child->next) {
-		if (mouse_input_for_box_recurse(child, pos, button, state, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
+		if (mouse_input_for_box_recurse(anyContained, child, pos, button, state, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
 			return false;
 		}
 	}
@@ -539,6 +627,8 @@ B32 mouse_input_for_box_recurse(Box* box, V2F32 pos, Win32::MouseButton button, 
 	}
 	UserCommunication comm{};
 	comm.mousePos = pos;
+	comm.renderArea = renderArea;
+	comm.scale = scale;
 	if (button == Win32::MOUSE_BUTTON_WHEEL) {
 		comm.scrollInput = state.scroll;
 	} else {
@@ -572,35 +662,63 @@ B32 mouse_input_for_box_recurse(Box* box, V2F32 pos, Win32::MouseButton button, 
 		}
 	}
 	ActionResult result = box->actionCallback(box, comm);
+	if (result == ACTION_HANDLED && !(box->flags & BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION)) {
+		clear_context_menu();
+	}
 	return result == ACTION_HANDLED;
 }
 bool inDialog = false;
 void handle_mouse_action(V2F32 pos, Win32::MouseButton button, Win32::MouseValue state) {
 	if (inDialog) return;
 	modificationLock.lock_write();
-	mouse_input_for_box_recurse(root.unsafeBox, pos, button, state, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+	for (I32 i = I32(contextMenuStack.size) - 1; i >= 0; i--) {
+		if (Box* contextMenuBox = contextMenuStack.data[i].get()) {
+			B32 anyContained = false;
+			mouse_input_for_box_recurse(&anyContained, contextMenuBox, pos, button, state, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+			if (anyContained) {
+				goto contextMenuClicked;
+			}
+		}
+	}
+	if (button != Win32::MOUSE_BUTTON_WHEEL && state.state == Win32::BUTTON_STATE_DOWN) {
+		context_menu(BoxHandle{}, BoxHandle{}, V2F32{});
+	}
+	mouse_input_for_box_recurse(nullptr, root.unsafeBox, pos, button, state, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+contextMenuClicked:;
 	if (button != Win32::MOUSE_BUTTON_WHEEL && state.state == Win32::BUTTON_STATE_UP) {
 		activeBox = BoxHandle{};
 	}
 	modificationLock.unlock_write();
 }
-B32 mouse_update_for_box_recurse(Box* box, V2F32 pos, V2F32 delta, V2F32 computedParentOffset, V2F32 offset, F32 scale) {
+B32 mouse_update_for_box_recurse(B32* anyContains, Box* box, V2F32 pos, V2F32 delta, V2F32 computedParentOffset, V2F32 offset, F32 scale) {
 	V2F32 childrenOffset;
 	Rng2F32 renderArea = compute_final_render_area_and_offset_for_children(&childrenOffset, box, computedParentOffset, offset, scale);
 	B32 mouseOutside = !rng_contains_point(renderArea, pos);
 	if (mouseOutside && box->flags & BOX_FLAG_CLIP_CHILDREN) {
 		return false;
 	}
+	if (anyContains && !mouseOutside) {
+		*anyContains = true;
+	}
 	for (Box* child = box->childFirst; child; child = child->next) {
-		if (mouse_update_for_box_recurse(child, pos, delta, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
+		if (mouse_update_for_box_recurse(anyContains, child, pos, delta, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
 			return true;
 		}
 	}
 	if (mouseOutside || box->actionCallback == nullptr) {
 		return false;
 	}
+	if (hotBox.get() != box) {
+		hotBoxStartTimeSeconds = current_time_seconds();
+	}
 	hotBox = BoxHandle{ box, box->generation };
 	Win32::set_cursor(box->hoverCursor);
+	UserCommunication comm{};
+	comm.mouseHovered = true;
+	comm.mousePos = pos;
+	comm.renderArea = renderArea;
+	comm.scale = scale;
+	box->actionCallback(box, comm);
 	return true;
 }
 
@@ -619,22 +737,35 @@ void handle_mouse_update(V2F32 pos, V2F32 delta) {
 	}
 	if (!active) {
 		hotBox = BoxHandle{};
-		mouse_update_for_box_recurse(root.unsafeBox, pos, delta, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+		for (I32 i = I32(contextMenuStack.size) - 1; i >= 0; i--) {
+			if (Box* contextMenuBox = contextMenuStack.data[i].get()) {
+				B32 anyContained = false;
+				mouse_update_for_box_recurse(&anyContained, contextMenuBox, pos, delta, V2F32{}, V2F32{}, 1.0F);
+				if (anyContained) {
+					goto contextMenuHovered;
+				}
+			}
+		}
+		mouse_update_for_box_recurse(nullptr, root.unsafeBox, pos, delta, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+	contextMenuHovered:;
 		if (!hotBox.get() && rng_contains_point(Rng2F32{ 0.0F, 0.0F, F32(Win32::framebufferWidth), F32(Win32::framebufferHeight) }, pos)) {
 			Win32::set_cursor(Win32::CURSOR_TYPE_POINTER);
 		}
 	}
 	modificationLock.unlock_write();
 }
-B32 keyboard_input_for_box_recurse(Box* box, V2F32 pos, Win32::Key key, Win32::ButtonState state, V2F32 computedParentOffset, V2F32 offset, F32 scale) {
+B32 keyboard_input_for_box_recurse(B32* anyContained, Box* box, V2F32 pos, Win32::Key key, Win32::ButtonState state, V2F32 computedParentOffset, V2F32 offset, F32 scale) {
 	V2F32 childrenOffset;
 	Rng2F32 renderArea = compute_final_render_area_and_offset_for_children(&childrenOffset, box, computedParentOffset, offset, scale);
 	B32 mouseOutside = !rng_contains_point(renderArea, pos);
 	if (mouseOutside && box->flags & BOX_FLAG_CLIP_CHILDREN) {
 		return false;
 	}
+	if (anyContained && !mouseOutside) {
+		*anyContained = true;
+	}
 	for (Box* child = box->childFirst; child; child = child->next) {
-		if (keyboard_input_for_box_recurse(child, pos, key, state, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
+		if (keyboard_input_for_box_recurse(anyContained, child, pos, key, state, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
 			return false;
 		}
 	}
@@ -650,7 +781,6 @@ B32 keyboard_input_for_box_recurse(Box* box, V2F32 pos, Win32::Key key, Win32::B
 	return result == ACTION_HANDLED;
 }
 void handle_keyboard_action(V2F32 mousePos, Win32::Key key, Win32::ButtonState state) {
-	
 	modificationLock.lock_write();
 	if (Box* activeTextInput = activeTextBox.get()) {
 		if (state == Win32::BUTTON_STATE_DOWN) {
@@ -661,7 +791,17 @@ void handle_keyboard_action(V2F32 mousePos, Win32::Key key, Win32::ButtonState s
 			activeTextInput->actionCallback(activeTextInput, comm);
 		}
 	} else {
-		keyboard_input_for_box_recurse(root.unsafeBox, mousePos, key, state, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+		for (I32 i = I32(contextMenuStack.size) - 1; i >= 0; i--) {
+			if (Box* contextMenuBox = contextMenuStack.data[i].get()) {
+				B32 anyContained = false;
+				keyboard_input_for_box_recurse(&anyContained, contextMenuBox, mousePos, key, state, V2F32{}, V2F32{}, 1.0F);
+				if (anyContained) {
+					goto contextMenuTyped;
+				}
+			}
+		}
+		keyboard_input_for_box_recurse(nullptr, root.unsafeBox, mousePos, key, state, V2F32{}, root.unsafeBox->contentOffset, root.unsafeBox->contentScale);
+	contextMenuTyped:;
 	}
 	modificationLock.unlock_write();
 }
@@ -813,73 +953,115 @@ BoxHandle toggle(Textures::Texture& texNotActivated, Textures::Texture& texActiv
 	BoxHandle box = button(texNotActivated, onToggled);
 	return box;
 }
-struct SliderData {
-	F32 min, max;
-};
-static_assert(sizeof(SliderData) <= sizeof(Box::userData), "");
-BoxHandle slider_f32(F32* toEdit, F32 min, F32 max) {
-	BoxHandle slider{};
-	UI_BACKGROUND_COLOR((V4F32{ 0.4F, 0.4F, 0.4F, 1.0F }))
-	UI_LBOX() {
-		slider = workingBox;
-		BoxHandle buttonBox = button(Textures::dropdownDown, [](Box*) {  });
-		buttonBox.unsafeBox->userData[0] = reinterpret_cast<UPtr>(toEdit);
-		BoxHandle textInput = text_input(""sa, "0.000"sa);
-
-		button(Textures::dropdownUp, [](Box*) {});
-
-	}
-	return slider;
-}
-
-
-}
-
-
-// API usage test (make sure it's reasonably easy to make UIs)
-V3F32 testScale;
-
-void keyframeable_slider(StrA name, F32* toEdit) {
-	using namespace UI;
+BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
+	BoxHandle result;
 	UI_RBOX() {
-		toggle(Textures::dropdownUp, Textures::dropdownDown, [](Box* box) { box->userData[0] = U64(!box->userData[0]); });
-		toggle(Textures::dropdownUp, Textures::dropdownDown, [](Box* box) { box->userData[0] = U64(!box->userData[0]); });
-		slider_f32(toEdit, 0.0F, 1.0F);
-		str_a(name);
+		UI_SIZE((V2F32{ 8.0F, 8.0F })) {
+			BoxHandle incrementButton = button(Textures::uiIncrementLeft, [](Box* box) {
+				Box* textInput = box->next;
+				F64 num;
+				StrA textStr = StrA{ textInput->typedTextBuffer, textInput->numTypedCharacters };
+				if (SerializeTools::parse_f64(&num, &textStr)) {
+					num += bitcast<F64>(box->userData[1]);
+					textInput->numTypedCharacters = MAX_TEXT_INPUT;
+					SerializeTools::serialize_f64(textInput->typedTextBuffer, &textInput->numTypedCharacters, roundf64(num * 10000.0) / 10000.0);
+					if (box->userData[2]) {
+						BoxConsumer(box->userData[2])(textInput);
+					}
+				}
+			});
+			incrementButton.unsafeBox->flags |= BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS;
+			incrementButton.unsafeBox->userData[1] = bitcast<U64>(-step);
+			incrementButton.unsafeBox->userData[2] = UPtr(onTextUpdated);
+		}
+		
+
+		BoxHandle box = generic_box();
+		result = box;
+		box.unsafeBox->flags = BOX_FLAG_CLIP_CHILDREN | BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
+		box.unsafeBox->sizeParentPercent.x = 1.0F;
+		box.unsafeBox->text = ""sa;
+		box.unsafeBox->typedTextBuffer = alloc_text_input();
+		StrA defaultStr = "0.0"sa;
+		memcpy(box.unsafeBox->typedTextBuffer, defaultStr.str, defaultStr.length);
+		box.unsafeBox->numTypedCharacters = U32(defaultStr.length);
+		box.unsafeBox->userData[0] = UPtr(onTextUpdated);
+		box.unsafeBox->userData[1] = bitcast<U64>(step);
+		box.unsafeBox->hoverCursor = Win32::CURSOR_TYPE_SIZE_HORIZONTAL;
+		box.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+			if (comm.leftClicked) {
+				activeTextBox = BoxHandle{ box, box->generation };
+				return ACTION_HANDLED;
+			}
+			if (comm.keyPressed && activeTextBox.get() == box) {
+				if (comm.charTyped && box->numTypedCharacters < MAX_TEXT_INPUT) {
+					box->typedTextBuffer[box->numTypedCharacters++] = comm.charTyped;
+				} else if (comm.keyPressed == Win32::KEY_BACKSPACE && box->numTypedCharacters > 0) {
+					box->numTypedCharacters--;
+				}
+				if (box->userData[0]) {
+					BoxConsumer(box->userData[0])(box);
+				}
+				return ACTION_HANDLED;
+			}
+			if (comm.drag.x) {
+				F64 num;
+				StrA textStr = StrA{ box->typedTextBuffer, box->numTypedCharacters };
+				if (SerializeTools::parse_f64(&num, &textStr)) {
+					num += bitcast<F64>(U64(box->userData[1])) * F64(comm.drag.x);
+					box->numTypedCharacters = MAX_TEXT_INPUT;
+					SerializeTools::serialize_f64(box->typedTextBuffer, &box->numTypedCharacters, roundf64(num * 10000.0) / 10000.0);
+					if (box->userData[0]) {
+						BoxConsumer(box->userData[0])(box);
+					}
+				}
+				return ACTION_HANDLED;
+			}
+			return ACTION_PASS;
+		};
+
+		UI_SIZE((V2F32{ 8.0F, 8.0F })) {
+			BoxHandle incrementButton = button(Textures::uiIncrementRight, [](Box* box) {
+				Box* textInput = box->prev;
+				F64 num;
+				StrA textStr = StrA{ textInput->typedTextBuffer, textInput->numTypedCharacters };
+				if (SerializeTools::parse_f64(&num, &textStr)) {
+					num += bitcast<F64>(U64(box->userData[1]));
+					textInput->numTypedCharacters = MAX_TEXT_INPUT;
+					SerializeTools::serialize_f64(textInput->typedTextBuffer, &textInput->numTypedCharacters, roundf64(num * 10000.0) / 10000.0);
+					if (box->userData[2]) {
+						BoxConsumer(box->userData[2])(textInput);
+					}
+				}
+			});
+			incrementButton.unsafeBox->flags |= BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS;
+			incrementButton.unsafeBox->userData[1] = bitcast<U64>(step);
+			incrementButton.unsafeBox->userData[2] = UPtr(onTextUpdated);
+		}
+		
 	}
+	return result;
 }
 
-void ui_draw_window(UI::Box* box) {
-	using namespace UI;
-	UI_EXPANDABLE_DOWN("Transform"sa) {
-		keyframeable_slider("Location X"sa, &testScale.x);
-		keyframeable_slider("Y"sa, &testScale.y);
-		keyframeable_slider("Z"sa, &testScale.z);
-		spacer(2.0F);
-		keyframeable_slider("Location X"sa, &testScale.x);
-		keyframeable_slider("Y"sa, &testScale.y);
-		keyframeable_slider("Z"sa, &testScale.z);
-		spacer(2.0F);
-		UI_RBOX() {
-			toggle(Textures::dropdownUp, Textures::dropdownDown, [](Box* box) { box->userData[0] = U64(!box->userData[0]); });
-			spacer(sizeStack.back().x);
-			UI_DROPDOWN() {
-				dropdown_button("Quaternion (WXYZ)"sa);
-				dropdown_button("XYZ Euler"sa, DROPDOWN_BUTTON_FLAG_MAKE_DEFAULT_OPTION);
-				dropdown_button("XZY Euler"sa);
-				dropdown_button("YXZ Euler"sa);
-				dropdown_button("YZX Euler"sa);
-				dropdown_button("ZXY Euler"sa);
-				dropdown_button("ZYZ Euler"sa);
-				dropdown_button("AxisAngle"sa);
-			}
-			str_a("Mode"sa);
-		}
-		spacer(2.0F);
-		keyframeable_slider("Scale X"sa, &testScale.x);
-		keyframeable_slider("Y"sa, &testScale.y);
-		keyframeable_slider("Z"sa, &testScale.z);
-		spacer(2.0F);
+BoxHandle context_menu_begin_helper() {
+	BoxHandle dummyParent = alloc_box();
+	dummyParent.unsafeBox->flags |= BOX_FLAG_INVISIBLE;
+	workingBox = dummyParent;
+	BoxHandle box = generic_box();
+	workingBox = box;
+	box.unsafeBox->layoutDirection = LAYOUT_DIRECTION_RIGHT;
+	spacer(2.0F);
+	dbox();
+	return dummyParent;
+}
+void context_menu_end_helper(BoxHandle parent, V2F32 offset) {
+	pop_box();
+	spacer(2.0F);
+	pop_box();
+	context_menu(parent, workingBox, offset);
+}
 
-	}
+#define UI_ADD_CONTEXT_MENU(parent, offset) for (UI::BoxHandle oldWorkingBox = UI::workingBox, contextMenuBox = UI::context_menu_begin_helper(); oldWorkingBox.unsafeBox; UI::context_menu_end_helper(parent, offset), UI::workingBox = oldWorkingBox, oldWorkingBox.unsafeBox = nullptr)
+
+
 }

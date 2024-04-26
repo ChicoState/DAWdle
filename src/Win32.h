@@ -131,6 +131,7 @@ enum Key {
 	KEY_F11 = 0x7A,
 	KEY_F12 = 0x7B,
 
+	KEY_SEMICOLON = 0xBA,
 	KEY_EQUALS = 0xBB,
 	KEY_COMMA = 0xBC,
 	KEY_DASH = 0xBD,
@@ -287,8 +288,8 @@ char key_to_typed_char(Key key) {
 			return ")!@#$%^&*("[key - KEY_0];
 		} else if (key >= KEY_A && key <= KEY_Z) {
 			return char(key);
-		} else if (key >= KEY_EQUALS && key <= KEY_BACKTICK) {
-			return "+<_>?~"[key - KEY_EQUALS];
+		} else if (key >= KEY_SEMICOLON && key <= KEY_BACKTICK) {
+			return ":+<_>?~"[key - KEY_SEMICOLON];
 		} else if (key >= KEY_BRACKET_OPEN && key <= KEY_QUOTE) {
 			return "{|}\""[key - KEY_BRACKET_OPEN];
 		}
@@ -297,8 +298,8 @@ char key_to_typed_char(Key key) {
 			return char(key);
 		} else if (key >= KEY_A && key <= KEY_Z) {
 			return char(key) | ('a' - 'A');
-		} else if (key >= KEY_EQUALS && key <= KEY_BACKTICK) {
-			return "=,-./`"[key - KEY_EQUALS];
+		} else if (key >= KEY_SEMICOLON && key <= KEY_BACKTICK) {
+			return ";=,-./`"[key - KEY_SEMICOLON];
 		} else if (key >= KEY_BRACKET_OPEN && key <= KEY_QUOTE) {
 			return "[\\]'"[key - KEY_BRACKET_OPEN];
 		}

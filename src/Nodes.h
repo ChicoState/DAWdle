@@ -22,7 +22,8 @@ void process_node(NodeHeader* node);
 #define NODE_WIDGETS X(INPUT, NodeWidgetInput)\
 	X(OUTPUT, NodeWidgetOutput)\
 	X(OSCILLOSCOPE, NodeWidgetOscilloscope)\
-	X(SAMPLER_BUTTON, NodeWidgetSamplerButton)
+	X(SAMPLER_BUTTON, NodeWidgetSamplerButton)\
+	X(CUSTOM_UI_ELEMENT, NodeWidgetCustomUIElement)
 
 #define NODES \
 	X(TIME_IN, NodeTimeIn)\
@@ -246,12 +247,14 @@ struct NodeWidgetInput {
 			workingBox.unsafeBox->backgroundColor = V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }.to_rgba8();
 			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
 			spacer(6.0F);
-			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 0.0F }))
-			text_input("Input Expression"sa, ""sa, [](Box* box) {
-				NodeWidgetInput& input = *reinterpret_cast<NodeWidgetInput*>(box->userData[1]);
-				StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
-				tbrs::parse_program(&input.program, parseStr);
-			}).unsafeBox->userData[1] = UPtr(this);
+
+			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.2F, 0.1F, 1.0F }))
+			slider_number(-F64_INF, F64_INF, 0.1, [](Box* box) {
+				NodeWidgetInput& input = *reinterpret_cast<NodeWidgetInput*>(box->userData[3]);
+					StrA textStr = StrA{ box->typedTextBuffer, box->numTypedCharacters };
+					StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
+					tbrs::parse_program(&input.program, parseStr);
+			}).unsafeBox->userData[3] = UPtr(this);
 			UI_SIZE((V2F32{ 8.0F, 8.0F })) {
 				Box* connector = generic_box().unsafeBox;
 				connector->flags = BOX_FLAG_FLOATING_X | BOX_FLAG_CUSTOM_DRAW | BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS;
@@ -446,12 +449,28 @@ struct NodeWidgetSamplerButton {
 		delete audioData;
 	}
 };
+struct NodeWidgetCustomUIElement {
+	NodeWidgetHeader header;
+	UI::BoxHandle uiBox;
+	void init(UI::BoxHandle box) {
+		header.init(NODE_WIDGET_CUSTOM_UI_ELEMENT);
+		uiBox = box;
+	}
+	void add_to_ui() {
+		if (UI::Box* box = uiBox.get()) {
+			box->parent = UI::workingBox.unsafeBox;
+			DLL_INSERT_TAIL(box, UI::workingBox.unsafeBox->childFirst, UI::workingBox.unsafeBox->childLast, prev, next);
+		}
+	}
+	void destroy() {};
+};
 union NodeWidget {
 	NodeWidgetHeader header;
 	NodeWidgetInput input;
 	NodeWidgetOutput output;
 	NodeWidgetOscilloscope oscilloscope;
 	NodeWidgetSamplerButton file_dialog_button;
+	NodeWidgetCustomUIElement customUIElement;
 };
 
 struct NodeGraph;
@@ -497,6 +516,7 @@ struct NodeHeader {
 	NodeHeader* selectedPrev;
 	NodeHeader* selectedNext;
 	UI::BoxHandle uiBox;
+	UI::BoxHandle uiNodeTitleBox;
 
 	void init(NodeType nodeType, StrA straTitle) {
 		type = nodeType;
@@ -590,7 +610,7 @@ struct NodeChannelOut {
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-
+		
 	}
 	F64* get_output_buffer(U32* lengthOut, U32* maskOut) {
 		NodeIOValue& val = header.get_input(0)->value;
@@ -666,12 +686,100 @@ enum MathOp {
 	MATH_OP_OR,
 	MATH_OP_XOR
 };
+StrA math_op_name(MathOp m) {
+	switch (m) {
+	case MATH_OP_NEG:   return "Negate"sa;
+	case MATH_OP_NOT:   return "Not"sa;
+	case MATH_OP_ABS:   return "Abs"sa;
+	case MATH_OP_RCP:   return "Rcp"sa;
+	case MATH_OP_SQRT:  return "Sqrt"sa;
+	case MATH_OP_RSQRT: return "Rcp Sqrt"sa;
+	case MATH_OP_ADD:   return "Add"sa;
+	case MATH_OP_SUB:   return "Subtract"sa;
+	case MATH_OP_MUL:   return "Multiply"sa;
+	case MATH_OP_DIV:   return "Divide"sa;
+	case MATH_OP_REM:   return "Remainder"sa;
+	case MATH_OP_EQ:    return "Equal"sa;
+	case MATH_OP_NE:    return "Not Equal"sa;
+	case MATH_OP_GT:    return "Greater"sa;
+	case MATH_OP_GE:    return "Greater/Equal"sa;
+	case MATH_OP_LT:    return "Less"sa;
+	case MATH_OP_LE:    return "Less/Equal"sa;
+	case MATH_OP_AND:   return "And"sa;
+	case MATH_OP_OR:    return "Or"sa;
+	case MATH_OP_XOR:   return "Xor"sa;
+	}
+	return ""sa;
+}
 struct NodeMathOp {
 	NodeHeader header;
 	MathOp op;
 
+	void set_op(MathOp newOp) {
+		op = newOp;
+		if (UI::Box* box = header.uiNodeTitleBox.get()) {
+			box->text = math_op_name(newOp);
+		}
+		//TODO disable second input if it's a unary operation
+	}
+
 	void init() {
 		header.init(NODE_MATH, "Math"sa);
+		{
+			using namespace UI;
+			BoxHandle dropdownBox = alloc_box();
+			dropdownBox.unsafeBox->flags |= BOX_FLAG_INVISIBLE;
+			dropdownBox.unsafeBox->layoutDirection = LAYOUT_DIRECTION_RIGHT;
+			dropdownBox.unsafeBox->sizeParentPercent.x = 1.0F;
+			UI_WORKING_BOX(dropdownBox) {
+				spacer();
+				BoxHandle operationSelector = text_button("Operation"sa, nullptr);
+				operationSelector.unsafeBox->userData[1] = UPtr(this);
+				operationSelector.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+					if (comm.leftClicked) {
+						UI_BACKGROUND_COLOR((V4F32{ 0.15F, 0.15F, 0.15F, 1.0F }))
+						UI_ADD_CONTEXT_MENU(BoxHandle{}, (V2F32{ comm.renderArea.minX, comm.renderArea.maxY })) {
+							contextMenuBox.unsafeBox->contentScale = comm.scale;
+							workingBox.unsafeBox->userData[1] = box->userData[1];
+							BoxConsumer callback = [](Box* box) {
+								reinterpret_cast<NodeMathOp*>(box->parent->userData[1])->set_op(MathOp(box->userData[1]));
+							};
+
+							for (MathOp op = MATH_OP_NEG; op <= MATH_OP_RSQRT; op = MathOp(U32(op) + 1)) {
+								text_button(math_op_name(op), callback).unsafeBox->userData[1] = op;
+							}
+
+							UI_SIZE((V2F32{ 64.0F, 2.0F }))
+							UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 1.0F }))
+							generic_box();
+
+							for (MathOp op = MATH_OP_ADD; op <= MATH_OP_REM; op = MathOp(U32(op) + 1)) {
+								text_button(math_op_name(op), callback).unsafeBox->userData[1] = op;
+							}
+
+							UI_SIZE((V2F32{ 64.0F, 2.0F }))
+							UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 1.0F }))
+							generic_box();
+
+							for (MathOp op = MATH_OP_EQ; op <= MATH_OP_LE; op = MathOp(U32(op) + 1)) {
+								text_button(math_op_name(op), callback).unsafeBox->userData[1] = op;
+							}
+
+							UI_SIZE((V2F32{ 64.0F, 2.0F }))
+							UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 1.0F }))
+							generic_box();
+
+							for (MathOp op = MATH_OP_AND; op <= MATH_OP_XOR; op = MathOp(U32(op) + 1)) {
+								text_button(math_op_name(op), callback).unsafeBox->userData[1] = op;
+							}
+						}
+					}
+					return ACTION_PASS;
+				};
+				spacer();
+			}
+			header.add_widget()->customUIElement.init(dropdownBox);
+		}
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 		header.add_widget()->input.init(0.0);
@@ -748,7 +856,9 @@ struct NodeMathOp {
 			for (U32 i = 0; i < output.bufferLength; i += 4) {
 				__m256d x = _mm256_load_pd(operandA.buffer + (i & operandA.bufferMask));
 				__m256d y = _mm256_load_pd(operandB.buffer + (i & operandB.bufferMask));
-				_mm256_store_pd(output.buffer + i, _mm256_sub_pd(x, _mm256_mul_pd(_mm256_round_pd(_mm256_div_pd(x, y), _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC), y)));
+				__m256d isZero = _mm256_cmp_pd(y, _mm256_setzero_pd(), _CMP_EQ_UQ);
+				__m256d val = _mm256_sub_pd(x, _mm256_mul_pd(_mm256_round_pd(_mm256_div_pd(x, y), _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC), y));
+				_mm256_store_pd(output.buffer + i, _mm256_blendv_pd(val, _mm256_setzero_pd(), isZero));
 			}
 		} break;
 		case MATH_OP_EQ: {
@@ -865,16 +975,51 @@ struct NodeSampler {
 		if (!button.audioData) return;
 		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
 		NodeIOValue& output = header.get_output(0)->value;
-		for (U32 i = 0; i < output.bufferLength; i++) {
-			F64 timeVal = time.buffer[i] * button.sampleRate; // should resample probably
-			while (timeVal >= button.numSamples) {
-				timeVal -= button.numSamples;
-			}
-			while (timeVal < 0) {
-				timeVal += button.numSamples;
-			}
-			output.buffer[i] = button.audioData[U64(timeVal)];
+
+		__m256d sampleCount = _mm256_set1_pd(F64(button.numSamples));
+		__m256i sampleCountMinus1 = _mm256_set1_epi32(button.numSamples - 1);
+		__m256i sampleCountMinus2 = _mm256_set1_epi32(button.numSamples - 2);
+		__m256d rcpSampleLengthSeconds = _mm256_set1_pd(F64(button.sampleRate) / F64(button.numSamples));
+		__m256d sampleRate = _mm256_set1_pd(F64(button.sampleRate));
+		__m256i oneI32 = _mm256_set1_epi32(1);
+		__m256i twoI32 = _mm256_set1_epi32(2);
+		__m256 twoF32 = _mm256_set1_ps(2.0F);
+		__m256 threeF32 = _mm256_set1_ps(3.0F);
+		U32 oldRoundingMode = _MM_GET_ROUNDING_MODE();
+		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
+		for (U32 i = 0; i < output.bufferLength; i += 8) {
+			__m256d timeInput0 = _mm256_load_pd(time.buffer + (i & time.bufferMask));
+			__m256d timeInput1 = _mm256_load_pd(time.buffer + (i + 4 & time.bufferMask));
+			__m256d normalizedTime0 = _mm256_mul_pd(rcpSampleLengthSeconds, timeInput0);
+			__m256d normalizedTime1 = _mm256_mul_pd(rcpSampleLengthSeconds, timeInput1);
+			normalizedTime0 = _mm256_sub_pd(normalizedTime0, _mm256_round_pd(normalizedTime0, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+			normalizedTime1 = _mm256_sub_pd(normalizedTime1, _mm256_round_pd(normalizedTime1, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+			
+			__m256i indices = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm256_cvtpd_epi32(_mm256_mul_pd(normalizedTime0, sampleCount))), _mm256_cvtpd_epi32(_mm256_mul_pd(normalizedTime1, sampleCount)), 1);
+			__m256 x0 = _mm256_mask_i32gather_ps(_mm256_setzero_ps(), button.audioData, _mm256_sub_epi32(indices, oneI32), _mm256_castsi256_ps(_mm256_cmpgt_epi32(indices, _mm256_setzero_si256())), 4);
+			__m256 x1 = _mm256_i32gather_ps(button.audioData, indices, 4);
+			__m256 x2 = _mm256_mask_i32gather_ps(_mm256_setzero_ps(), button.audioData, _mm256_add_epi32(indices, oneI32), _mm256_castsi256_ps(_mm256_cmpgt_epi32(sampleCountMinus1, indices)), 4);
+			__m256 x3 = _mm256_mask_i32gather_ps(_mm256_setzero_ps(), button.audioData, _mm256_add_epi32(indices, twoI32), _mm256_castsi256_ps(_mm256_cmpgt_epi32(sampleCountMinus2, indices)), 4);
+			__m256 slope0 = _mm256_sub_ps(x1, x0);
+			__m256 slope1 = _mm256_sub_ps(x3, x2);
+
+			// (2.0 * x1 + slope0) - (2.0 * x2 - slope1)
+			__m256 a = _mm256_sub_ps(_mm256_fmadd_ps(twoF32, x1, slope0), _mm256_fmsub_ps(twoF32, x2, slope1));
+			// -3.0 * x1 - (2.0 * slope0 - (3.0 * x2 - slope1));
+			__m256 b = _mm256_fnmsub_ps(threeF32, x1, _mm256_fmsub_ps(twoF32, slope0, _mm256_fmsub_ps(threeF32, x2, slope1)));
+			__m256 c = slope0;
+			__m256 d = x1;
+			__m256d t0F64 = _mm256_mul_pd(sampleRate, timeInput0);
+			__m256d t1F64 = _mm256_mul_pd(sampleRate, timeInput1);
+			t0F64 = _mm256_sub_pd(t0F64, _mm256_round_pd(t0F64, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+			t1F64 = _mm256_sub_pd(t1F64, _mm256_round_pd(t1F64, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
+			__m256 t = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(t0F64)), _mm256_cvtpd_ps(t1F64), 1);
+			__m256 val = _mm256_fmadd_ps(_mm256_fmadd_ps(_mm256_fmadd_ps(a, t, b), t, c), t, d);
+
+			_mm256_store_pd(output.buffer + i + 0, _mm256_cvtps_pd(_mm256_extractf128_ps(val, 0)));
+			_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(val, 1)));
 		}
+		_MM_SET_ROUNDING_MODE(oldRoundingMode);
 	}
 	void add_to_ui() {
 		using namespace UI;
@@ -1132,7 +1277,7 @@ UI::Box* NodeHeader::add_to_ui() {
 		spacer();
 		UI_TEXT_SIZE(12.0F)
 		UI_TEXT_COLOR((V4F32{ 0.2F, 0.0F, 0.0F, 1.0F }))
-		str_a(StrA{ title, titleLength });
+		uiNodeTitleBox = str_a(StrA{ title, titleLength });
 		spacer();
 		UI_SIZE((V2F32{ 8.0F, 8.0F }));
 		button(Textures::uiX, [](Box* box) {

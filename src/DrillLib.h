@@ -763,24 +763,20 @@ void print_integer_pad(U64 num, I32 pad) {
 	}
 	print(str);
 }
-// This is a really bad way of printing floats.
-// I need to spend some time implementing an actually good approach
-void print_float(F32 f) {
-	if (f < 0.0F) {
-		print("-");
-		f = -f;
-	}
-	U32 wholePart = U32(truncf32(f));
-	U32 fractionalPart = U32(fractf32(f) * 10000.0F);
-	print_integer(wholePart);
-	print(".");
-	print_integer_pad(fractionalPart, 4);
+namespace SerializeTools {
+void serialize_f64(char* dstBuffer, U32* dstBufferSize, F64 startValue);
+}
+void print_float(F64 f) {
+	char floatBuf[64];
+	U32 floatBufSize = sizeof(floatBuf);
+	SerializeTools::serialize_f64(floatBuf, &floatBufSize, f);
+	print(StrA{ floatBuf, floatBufSize });
 }
 void println_integer(U64 num) {
 	print_integer(num);
 	print("\n");
 }
-void println_float(F32 f) {
+void println_float(F64 f) {
 	print_float(f);
 	print("\n");
 }

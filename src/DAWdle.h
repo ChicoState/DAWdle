@@ -131,7 +131,7 @@ void do_frame() {
 }
 
 U32 run_dawdle() {
-	//MSDFGenerator::generate_msdf_font("./resources/font.svg"sa, "./resources/textures/font.ddf"sa, 64, 64, PX_TO_MILLIMETER(6.0F), PX_TO_MILLIMETER(12.0F), 12.0F, false);
+	//MSDFGenerator::generate_msdf_font("./resources/font.svg"sa, "./resources/textures/font.ddf"sa, 64, 64, PX_TO_MILLIMETER(6.0F), PX_TO_MILLIMETER(12.0F), 12.0F, true);
 	//return 0;
 	audioThread = CreateThread(NULL, 64 * KILOBYTE, audio_thread_func, NULL, 0, NULL);
 	if (audioThread == NULL) {
