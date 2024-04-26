@@ -1005,7 +1005,6 @@ BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
 				return ACTION_HANDLED;
 			}
 			if (comm.drag.x) {
-				println_float(132.0);
 				F64 num;
 				StrA textStr = StrA{ box->typedTextBuffer, box->numTypedCharacters };
 				if (SerializeTools::parse_f64(&num, &textStr) && SerializeTools::skip_whitespace(&textStr).is_empty()) {

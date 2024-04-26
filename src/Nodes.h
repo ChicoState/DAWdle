@@ -360,13 +360,15 @@ struct NodeWidgetOscilloscope {
 					V2F32 origin = box->computedOffset + box->parent->computedOffset;
 					F32 width = comm.renderArea.maxX - comm.renderArea.minX;
 					F32 height = comm.renderArea.maxY - comm.renderArea.minY;
-					for (size_t i = 0; i < osc.waveformBufferSize - 1; ++i) {
-						V2F32 points[2];
-						points[0].x = origin.x + (i / (F32)osc.waveformBufferSize) * width;
-						points[0].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
-						points[1].x = origin.x + ((i + 1) / (F32)osc.waveformBufferSize) * width;
-						points[1].y = origin.y + height / 2 + osc.waveformBuffer[i + 1] * height / 2;
-						comm.tessellator->ui_line_strip(points, 2, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+					MemoryArena& arena = get_scratch_arena();
+					MEMORY_ARENA_FRAME(arena) {
+						V2F32* points = arena.alloc<V2F32>(osc.waveformBufferSize);
+						//TODO the number of points can be reduced depending on the render size (no point in rendering a 1024 segment line if it's only 100 pixels wide)
+						for (size_t i = 0; i < osc.waveformBufferSize; ++i) {
+							points[i].x = origin.x + (i / (F32)osc.waveformBufferSize) * width;
+							points[i].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
+						}
+						comm.tessellator->ui_line_strip(points, osc.waveformBufferSize, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 					}
 				}
 				return UI::ACTION_HANDLED;
