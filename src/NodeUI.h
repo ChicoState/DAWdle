@@ -34,44 +34,47 @@ struct Panel {
 		workingBox = BoxHandle{ panelBox, panelBox->generation };
 
 		UI_RBOX() {
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+			text_button("Save Project"sa, [](Box* box) {
+				Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
+				if (graph) {
+					char savePath[260] = {};
+					OPENFILENAMEA fileDialogOptions{};
+					fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
+					fileDialogOptions.hwndOwner = Win32::window;
+					fileDialogOptions.lpstrFilter = "DAWdle Project (*.dawdle)\0*.dawdle\0";
+					fileDialogOptions.lpstrFile = savePath;
+					fileDialogOptions.nMaxFile = sizeof(savePath);
+					fileDialogOptions.Flags = OFN_OVERWRITEPROMPT;
+					inDialog = true;
+					if (GetSaveFileNameA(&fileDialogOptions)) {
+						Serialization::SaveNodeGraph(*graph, savePath);
+					}
+					inDialog = false;
+				}
+			}).unsafeBox->userData[1] = UPtr(this);
+			spacer(500);
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+			text_button("Load Project"sa, [](Box* box) {
+				Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
+				if (graph) {
+					char loadPath[260] = {};
+					OPENFILENAMEA fileDialogOptions{};
+					fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
+					fileDialogOptions.hwndOwner = Win32::window;
+					fileDialogOptions.lpstrFilter = "DAWdle Project (*.dawdle)\0*.dawdle\0";
+					fileDialogOptions.lpstrFile = loadPath;
+					fileDialogOptions.nMaxFile = sizeof(loadPath);
+					fileDialogOptions.Flags = OFN_FILEMUSTEXIST;
+					inDialog = true;
+					if (GetOpenFileNameA(&fileDialogOptions)) {
+						Serialization::LoadNodeGraph(*graph, loadPath);
+					}
+					inDialog = false;
+				}
+			}).unsafeBox->userData[1] = UPtr(this);
+			spacer();
 			UI_BACKGROUND_COLOR((V4F32{ 0.02F, 0.02F, 0.02F, 1.0F }))
-				text_button("Save Project"sa, [](Box* box) {
-					Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
-					if (graph) {
-						char savePath[260] = {};
-						OPENFILENAMEA fileDialogOptions{};
-						fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
-						fileDialogOptions.hwndOwner = Win32::window;
-						fileDialogOptions.lpstrFilter = "DAWdle Project (*.dawdle)\0*.dawdle\0";
-						fileDialogOptions.lpstrFile = savePath;
-						fileDialogOptions.nMaxFile = sizeof(savePath);
-						fileDialogOptions.Flags = OFN_OVERWRITEPROMPT;
-						inDialog = true;
-						if (GetSaveFileNameA(&fileDialogOptions)) {
-							Serialization::SaveNodeGraph(*graph, savePath);
-						}
-						inDialog = false;
-					}
-				}).unsafeBox->userData[1] = UPtr(this);
-				text_button("Load Project"sa, [](Box* box) {
-					Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
-					if (graph) {
-						char loadPath[260] = {};
-						OPENFILENAMEA fileDialogOptions{};
-						fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
-						fileDialogOptions.hwndOwner = Win32::window;
-						fileDialogOptions.lpstrFilter = "DAWdle Project (*.dawdle)\0*.dawdle\0";
-						fileDialogOptions.lpstrFile = loadPath;
-						fileDialogOptions.nMaxFile = sizeof(loadPath);
-						fileDialogOptions.Flags = OFN_FILEMUSTEXIST;
-						inDialog = true;
-						if (GetOpenFileNameA(&fileDialogOptions)) {
-							Serialization::LoadNodeGraph(*graph, loadPath);
-						}
-						inDialog = false;
-					}
-				}).unsafeBox->userData[1] = UPtr(this);
-				spacer();
 			button(Textures::uiX, [](Box* box) { reinterpret_cast<Panel*>(box->userData[1])->destroy(); }).unsafeBox->userData[1] = reinterpret_cast<UPtr>(this);
 		}
 		content = generic_box();
