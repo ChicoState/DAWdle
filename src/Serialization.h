@@ -35,8 +35,16 @@ namespace Serialization {
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
             outFile.write(reinterpret_cast<char*>(&node->type), sizeof(node->type));
             outFile.write(reinterpret_cast<char*>(&node->offset), sizeof(node->offset));
+            
+            if (node->type == NODE_SAMPLER) {
+                NodeSampler& samplerNode = *reinterpret_cast<NodeSampler*>(node);
+                NodeWidgetSamplerButton& button = *samplerNode.header.get_samplerbutton(0);
+                U32 pathLength = strlen(button.path);
+                outFile.write(reinterpret_cast<char*>(&pathLength), sizeof(pathLength));
+                outFile.write(button.path, pathLength);
+            }
+            
             nodeIndices[node] = nodeIndex++;
-
             std::vector<NodeWidgetInput*> inputs;
             for (NodeWidgetHeader* widget = node->widgetBegin; widget; widget = widget->next) {
                 if (widget->type == NODE_WIDGET_INPUT) {
@@ -87,6 +95,18 @@ namespace Serialization {
             inFile.read(reinterpret_cast<char*>(&pos), sizeof(pos));
             NodeHeader* node = createNodeByType(graph, type, pos);
             nodeHeaders.push_back(node);
+
+            if (type == NODE_SAMPLER) {
+                NodeSampler& samplerNode = *reinterpret_cast<NodeSampler*>(node);
+                NodeWidgetSamplerButton& button = *samplerNode.header.get_samplerbutton(0);
+
+                U32 pathLength;
+                inFile.read(reinterpret_cast<char*>(&pathLength), sizeof(pathLength));
+                inFile.read(button.path, pathLength);
+                button.path[pathLength] = '\0';
+                button.loadFromFile();
+            }
+
             U32 inputCount;
             inFile.read(reinterpret_cast<char*>(&inputCount), sizeof(inputCount));
             for (U32 i = 0; i < inputCount; i++) {
