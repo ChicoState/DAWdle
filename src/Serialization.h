@@ -44,7 +44,9 @@ namespace Serialization {
             std::cerr << "Failed to open file for reading: " << filePath << std::endl;
             return;
         }
-        graph.destroy();
+
+        graph.delete_all_nodes();
+
         while (inFile.peek() != EOF) {
             NodeType type;
             V2F32 pos;

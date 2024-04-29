@@ -1188,6 +1188,13 @@ struct NodeGraph {
 		}
 		node->destroy();
 	}
+	void delete_all_nodes() {
+		while (nodesFirst != nullptr) {
+			NodeHeader* nextNode = nodesFirst->next;
+			delete_node(nodesFirst);
+			nodesFirst = nextNode;
+		}
+	}
 	void delete_selected() {
 		for (NodeHeader* node = selectedFirst; node;) {
 			NodeHeader* nextNode = node->selectedNext;
