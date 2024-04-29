@@ -207,6 +207,8 @@ extern Framebuffer mainFramebuffer;
 
 extern U32 hostMemoryTypeIndex;
 extern U32 deviceMemoryTypeIndex;
+extern VkMemoryPropertyFlags hostMemoryFlags;
+extern VkMemoryPropertyFlags deviceMemoryFlags;
 
 extern VkPhysicalDeviceProperties physicalDeviceProperties;
 

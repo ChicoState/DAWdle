@@ -69,7 +69,7 @@ struct GPUUploadStager {
 		memoryAllocateInfo.memoryTypeIndex = VK::hostMemoryTypeIndex;
 		CHK_VK(VK::vkAllocateMemory(VK::logicalDevice, &memoryAllocateInfo, nullptr, &memory));
 		void* memoryMapping;
-		CHK_VK(VK::vkMapMemory(VK::logicalDevice, memory, 0, uploadStagingBufferSize, 0, &memoryMapping));
+		CHK_VK(VK::vkMapMemory(VK::logicalDevice, memory, 0, memoryAllocateInfo.allocationSize, 0, &memoryMapping));
 
 		U32 mappedDataOffset = 0;
 		for (U32 i = 0; i < 2; i++) {
@@ -169,7 +169,7 @@ struct GPUUploadStager {
 	void flush() {
 		StagingBuffer& stagingBuffer = stagingBuffers[currentBufferIdx];
 		if (!stagingBuffer.submitted && stagingBuffer.offset != 0) {
-			if (!(VK::hostMemoryTypeIndex & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+			if (!(VK::hostMemoryFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 				VkMappedMemoryRange memoryInvalidateRange{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 				memoryInvalidateRange.memory = memory;
 				memoryInvalidateRange.offset = VkDeviceSize(currentBufferIdx) * uploadStagingBufferSize;

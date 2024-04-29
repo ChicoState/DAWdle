@@ -140,7 +140,7 @@ U32 run_dawdle() {
 		println_integer(err);
 		return EXIT_FAILURE;
 	}
-	
+
 	LOG_TIME("Total Init Time: ") {
 		LARGE_INTEGER perfCounter;
 		if (!QueryPerformanceCounter(&perfCounter)) {
@@ -162,13 +162,13 @@ U32 run_dawdle() {
 		}
 
 		UI::init_ui();
-		
+
 		UI::modificationLock.lock_write();
 		primaryGraph.init();
 		NodeUI::init(&primaryGraph);
 		UI::modificationLock.unlock_write();
 	}
-	
+
 	Win32::show_window();
 
 	char buf[1024];
@@ -203,7 +203,7 @@ U32 run_dawdle() {
 			Win32::destroy();
 		}
 	}
-	
+
 
 	return EXIT_SUCCESS;
 }
