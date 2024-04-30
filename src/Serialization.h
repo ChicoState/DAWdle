@@ -1,24 +1,29 @@
 #include <fstream>
 #include "Nodes.h"
 
-Nodes::NodeHeader* createNodeByType(Nodes::NodeGraph& graph, Nodes::NodeType type, V2F32 pos) {
-    using namespace Nodes;
-    switch (type) {
-    case NODE_TIME_IN:
-        return &graph.create_node<NodeTimeIn>(pos).header;
-    case NODE_SINE:
-        return &graph.create_node<NodeSine>(pos).header;
-    case NODE_CHANNEL_OUT:
-        return &graph.create_node<NodeChannelOut>(pos).header;
-    case NODE_MATH:
-        return &graph.create_node<NodeMathOp>(pos).header;
-    case NODE_OSCILLOSCOPE:
-        return &graph.create_node<NodeOscilloscope>(pos).header;
-    case NODE_SAMPLER:
-        return &graph.create_node<NodeSampler>(pos).header;
-    default:
-        print("node cannot be loaded. It must be added to the switch statement in serialization.h, function createNodeByType()");
-        break;
+namespace Nodes {
+
+    template<NodeType T>
+    NodeHeader* createNode(NodeGraph& graph, V2F32 pos) {
+        static_assert(T != NODE_COUNT, "createNode function must be specialized for each NodeType.");
+        return nullptr;
+    }
+#define X(enumName, typeName) \
+template<> \
+NodeHeader* createNode<NODE_##enumName>(NodeGraph& graph, V2F32 pos) { \
+    return &graph.create_node<typeName>(pos).header; \
+}
+    NODES
+#undef X
+        NodeHeader* createNodeByType(NodeGraph& graph, NodeType type, V2F32 pos) {
+        switch (type) {
+#define X(enumName, typeName) case NODE_##enumName: return createNode<NODE_##enumName>(graph, pos);
+            NODES
+#undef X
+        default:
+            print("Node cannot be loaded. It must be defined in NODES macro.");
+            return nullptr;
+        }
     }
 }
 
