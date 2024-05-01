@@ -37,7 +37,7 @@ namespace Serialization {
     }
 
     std::vector<std::pair<NodeType, V2F32>> nodeBasicData;
-    std::vector<std::pair<U32, const char*>> samplerData;
+    std::vector<std::tuple<U32, const char*, U32>> samplerData;
     std::vector<U32> inputCounts;
     std::vector<std::pair<U32, U32>> connectionIndices;
 
@@ -52,7 +52,7 @@ namespace Serialization {
             NodeSampler& samplerNode = *reinterpret_cast<NodeSampler*>(node);
             NodeWidgetSamplerButton& button = *samplerNode.header.get_samplerbutton(0);
             U32 pathLength = strlen(button.path);
-            samplerData.emplace_back(pathLength, button.path);
+            samplerData.emplace_back(pathLength, button.path, pathLength);
         }
 
         std::vector<NodeWidgetInput*> inputs;
@@ -93,9 +93,9 @@ namespace Serialization {
         outFile.write(reinterpret_cast<const char*>(&offset), sizeof(offset));
 
         if (type == NODE_SAMPLER) {
-            const auto& [pathLength, pathData] = samplerData[i];
+            const auto& [pathLength, pathData, pathLengthRepeat] = samplerData[i];
             outFile.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
-            outFile.write(reinterpret_cast<const char*>(&pathData), pathLength);
+            outFile.write(pathData, pathLength);
         }
 
         U32 inputCount = inputCounts[i];
@@ -133,7 +133,7 @@ namespace Serialization {
 
                 U32 pathLength;
                 inFile.read(reinterpret_cast<char*>(&pathLength), sizeof(pathLength));
-                inFile.read(reinterpret_cast<char*>(&button.path), pathLength);
+                inFile.read(button.path, pathLength);
                 button.path[pathLength] = '\0';
                 button.loadFromFile();
             }
