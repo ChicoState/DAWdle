@@ -113,7 +113,7 @@ namespace Serialization {
 
                 U32 pathLength;
                 inFile.read(reinterpret_cast<char*>(&pathLength), sizeof(pathLength));
-                inFile.read(reinterpret_cast<char*>(&button.path), pathLength);
+                inFile.read(reinterpret_cast<char*>(button.path), pathLength);
                 button.path[pathLength] = '\0';
                 button.loadFromFile();
             }
