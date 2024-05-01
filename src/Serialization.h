@@ -2,22 +2,9 @@
 #include "Nodes.h"
 
 namespace Nodes {
-
-    template<NodeType T>
-    NodeHeader* createNode(NodeGraph& graph, V2F32 pos) {
-        static_assert(T != NODE_COUNT, "createNode function must be specialized for each NodeType.");
-        return nullptr;
-    }
-#define X(enumName, typeName) \
-template<> \
-NodeHeader* createNode<NODE_##enumName>(NodeGraph& graph, V2F32 pos) { \
-    return &graph.create_node<typeName>(pos).header; \
-}
-    NODES
-#undef X
-        NodeHeader* createNodeByType(NodeGraph& graph, NodeType type, V2F32 pos) {
+    NodeHeader* createNodeByType(NodeGraph& graph, NodeType type, V2F32 pos) {
         switch (type) {
-#define X(enumName, typeName) case NODE_##enumName: return createNode<NODE_##enumName>(graph, pos);
+#define X(enumName, typeName) case NODE_##enumName: return &graph.create_node<typeName>(pos).header;
             NODES
 #undef X
         default:
