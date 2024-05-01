@@ -47,14 +47,12 @@ namespace Serialization {
     for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
         nodeBasicData.emplace_back(node->type, node->offset);
         nodeIndices[node] = nodeIndex++;
-
         if (node->type == NODE_SAMPLER) {
             NodeSampler& samplerNode = *reinterpret_cast<NodeSampler*>(node);
             NodeWidgetSamplerButton& button = *samplerNode.header.get_samplerbutton(0);
             U32 pathLength = strlen(button.path);
             samplerData.emplace_back(pathLength, button.path);
         }
-
         std::vector<NodeWidgetInput*> inputs;
         for (NodeWidgetHeader* widget = node->widgetBegin; widget; widget = widget->next) {
             if (widget->type == NODE_WIDGET_INPUT) {
@@ -62,11 +60,9 @@ namespace Serialization {
             }
         }
         inputCounts.push_back(inputs.size());
-
         for (auto* input : inputs) {
             U32 outputNodeIndex = INVALID_NODE_IDX;
             U32 outputWidgetIndex = INVALID_NODE_IDX;
-
             if (input->inputHandle.get()) {
                 NodeHeader* connectedNode = input->inputHandle.get()->header.parent;
                 outputNodeIndex = nodeIndices[connectedNode];
@@ -91,23 +87,19 @@ namespace Serialization {
         const auto& [type, offset] = nodeBasicData[i];
         outFile.write(reinterpret_cast<const char*>(&type), sizeof(type));
         outFile.write(reinterpret_cast<const char*>(&offset), sizeof(offset));
-
         if (type == NODE_SAMPLER) {
             const auto& [pathLength, pathData] = samplerData[i];
             outFile.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
             outFile.write(reinterpret_cast<const char*>(&pathData), pathLength);
         }
-
         U32 inputCount = inputCounts[i];
         outFile.write(reinterpret_cast<const char*>(&inputCount), sizeof(inputCount));
-
         for (U32 j = 0; j < inputCount; ++j) {
             const auto& [outputNodeIndex, outputWidgetIndex] = connectionIndices[connectionIndex++];
             outFile.write(reinterpret_cast<const char*>(&outputNodeIndex), sizeof(outputNodeIndex));
             outFile.write(reinterpret_cast<const char*>(&outputWidgetIndex), sizeof(outputWidgetIndex));
         }
     }
-
     outFile.close();
 }
     void LoadNodeGraph(Nodes::NodeGraph& graph, const std::string& filePath) {
