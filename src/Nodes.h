@@ -511,6 +511,7 @@ struct NodeHeader {
 	B32 hasProcessed;
 	NodeWidgetHeader* widgetBegin;
 	NodeWidgetHeader* widgetEnd;
+	U32 serializeIndex;
 
 	NodeGraph* parent;
 	NodeHeader* prev;
@@ -531,6 +532,7 @@ struct NodeHeader {
 		prev = next = nullptr;
 		selectedPrev = selectedNext = nullptr;
 		uiBox = UI::BoxHandle{};
+		serializeIndex = 0;
 	}
 
 	void destroy() {
