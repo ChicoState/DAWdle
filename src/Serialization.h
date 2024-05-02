@@ -133,11 +133,11 @@ namespace Serialization {
         for (size_t i = 0; i < nodeHeaders.size(); i++) {
             NodeHeader* node = nodeHeaders[i];
             const auto& nodeConnections = connections[i];
-            for (const auto& conn : nodeConnections) {
-                const auto& [outputNodeIndex, outputWidgetIndex] = conn;
+            for (size_t connIndex = 0; connIndex < nodeConnections.size(); connIndex++) {
+                const auto& [outputNodeIndex, outputWidgetIndex] = nodeConnections[connIndex];
                 if (outputNodeIndex != INVALID_NODE_IDX && outputNodeIndex < nodeHeaders.size()) {
                     NodeWidgetOutput* output = nodeHeaders[outputNodeIndex]->get_output(outputWidgetIndex);
-                    NodeWidgetInput* input = node->get_input(i);
+                    NodeWidgetInput* input = node->get_input(connIndex);
                     if (input && output) {
                         input->connect(output);
                     }
