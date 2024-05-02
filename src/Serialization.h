@@ -30,6 +30,7 @@ namespace Serialization {
         std::vector<std::pair<U32, const char*>> samplerData;
         std::vector<U32> inputCounts;
         std::vector<std::pair<U32, U32>> connectionIndices;
+        std::vector<MathOp> mathOps;
 
         U32 currentSerializeIndex = 0;
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
@@ -40,6 +41,10 @@ namespace Serialization {
                 NodeWidgetSamplerButton& button = *samplerNode.header.get_samplerbutton(0);
                 U32 pathLength = strlen(button.path);
                 samplerData.emplace_back(pathLength, button.path);
+            }
+            if (node->type == NODE_MATH) { 
+                NodeMathOp& mathNode = *reinterpret_cast<NodeMathOp*>(node);
+                mathOps.push_back(mathNode.op); 
             }
         }
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
@@ -75,6 +80,7 @@ namespace Serialization {
         outFile.write(reinterpret_cast<const char*>(&CURRENT_SERIALIZE_VERSION), sizeof(CURRENT_SERIALIZE_VERSION));
         size_t connectionIndex = 0;
         size_t samplerIndex = 0;
+        size_t mathNodeIndex = 0;
         for (size_t i = 0; i < nodeBasicData.size(); ++i) {
             const auto& [type, offset] = nodeBasicData[i];
             outFile.write(reinterpret_cast<const char*>(&type), sizeof(type));
@@ -83,6 +89,9 @@ namespace Serialization {
                 const auto& [pathLength, pathData] = samplerData[samplerIndex++];
                 outFile.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
                 outFile.write(reinterpret_cast<const char*>(pathData), pathLength);
+            }
+            if (type == NODE_MATH) {
+                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex]), sizeof(mathOps[mathNodeIndex]));
             }
             U32 inputCount = inputCounts[i];
             outFile.write(reinterpret_cast<const char*>(&inputCount), sizeof(inputCount));
@@ -133,6 +142,12 @@ namespace Serialization {
                 inFile.read(reinterpret_cast<char*>(button.path), pathLength);
                 button.path[pathLength] = '\0';
                 button.loadFromFile();
+            }
+            if (type == NODE_MATH) {
+                NodeMathOp& mathNode = *reinterpret_cast<NodeMathOp*>(node);
+                MathOp op;
+                inFile.read(reinterpret_cast<char*>(&op), sizeof(op));
+                mathNode.set_op(op);
             }
 
             U32 inputCount;
