@@ -77,7 +77,7 @@ namespace Serialization {
             if (type == NODE_SAMPLER) {
                 const auto& [pathLength, pathData] = samplerData[samplerIndex++];
                 outFile.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
-                outFile.write(reinterpret_cast<const char*>(&pathData), pathLength);
+                outFile.write(reinterpret_cast<const char*>(pathData), pathLength);
             }
             U32 inputCount = inputCounts[i];
             outFile.write(reinterpret_cast<const char*>(&inputCount), sizeof(inputCount));
