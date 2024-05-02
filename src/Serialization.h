@@ -1,6 +1,9 @@
 #include <fstream>
 #include "Nodes.h"
 
+const U32 SERIALIZE_FILE_MAGIC = 0x44574144;
+const U32 CURRENT_SERIALIZE_VERSION = DRILL_LIB_MAKE_VERSION(1, 0, 0);
+
 namespace Nodes {
     NodeHeader* createNodeByType(NodeGraph& graph, NodeType type, V2F32 pos) {
         switch (type) {
@@ -68,6 +71,8 @@ namespace Serialization {
         }
 
         // write
+        outFile.write(reinterpret_cast<const char*>(&SERIALIZE_FILE_MAGIC), sizeof(SERIALIZE_FILE_MAGIC));
+        outFile.write(reinterpret_cast<const char*>(&CURRENT_SERIALIZE_VERSION), sizeof(CURRENT_SERIALIZE_VERSION));
         size_t connectionIndex = 0;
         size_t samplerIndex = 0;
         for (size_t i = 0; i < nodeBasicData.size(); ++i) {
@@ -97,6 +102,18 @@ namespace Serialization {
             std::cerr << "Failed to open file for reading: " << filePath << std::endl;
             return;
         }
+        U32 fileMagic, fileVersion;
+        inFile.read(reinterpret_cast<char*>(&fileMagic), sizeof(fileMagic));
+        inFile.read(reinterpret_cast<char*>(&fileVersion), sizeof(fileVersion));
+        if (fileMagic != SERIALIZE_FILE_MAGIC) {
+            MessageBox(nullptr, "Not a valid DAWdle file.", "File Error", MB_OK | MB_ICONERROR);
+            return;
+        }
+        if (fileVersion != CURRENT_SERIALIZE_VERSION) {
+            MessageBox(nullptr, "Incompatible file version.", "Version Error", MB_OK | MB_ICONERROR);
+            return;
+        }
+
         graph.delete_all_nodes();
         std::vector<NodeHeader*> nodeHeaders;
         std::vector<std::vector<std::pair<U32, U32>>> connections;
