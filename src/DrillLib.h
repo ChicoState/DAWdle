@@ -404,7 +404,7 @@ struct StrA {
 		if (other.length > length) {
 			return -1;
 		}
-		for (U64 i = 0; i < length - other.length; i++) {
+		for (U64 i = 0; i <= length - other.length; i++) {
 			if (memcmp(str + i, other.str, other.length) == 0) {
 				return I64(i);
 			}
@@ -423,7 +423,7 @@ struct StrA {
 		if (other.length > length) {
 			return -1;
 		}
-		for (I64 i = I64(length - other.length - 1); i >= 0; i--) {
+		for (I64 i = I64(length - other.length); i >= 0; i--) {
 			if (memcmp(str + i, other.str, other.length) == 0) {
 				return i;
 			}
@@ -462,7 +462,7 @@ struct StrA {
 		return slice(0, amount);
 	}
 	FINLINE StrA suffix(I64 amount) const {
-		return slice(-amount, I64_MAX);
+		return slice(amount < 0 ? -amount : length - amount, I64_MAX);
 	}
 	FINLINE StrA skip(I64 amount) const {
 		return slice(amount, I64_MAX);
