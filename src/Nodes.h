@@ -31,7 +31,8 @@ void process_node(NodeHeader* node);
 	X(WAVE, NodeWave)\
 	X(MATH, NodeMathOp)\
 	X(OSCILLOSCOPE, NodeOscilloscope)\
-	X(SAMPLER, NodeSampler)
+	X(SAMPLER, NodeSampler)\
+	X(FILTER, NodeFilter)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -780,6 +781,192 @@ struct NodeWave {
 		Box* box = header.add_to_ui();
 	}
 };
+
+enum FilterType {
+	FILTER_LOWPASS,
+	FILTER_HIGHPASS,
+	FILTER_BANDPASS
+};
+
+const StrA filterTypeName(FilterType type) {
+	switch (type) {
+	case FILTER_LOWPASS: return "Lowpass"sa;
+	case FILTER_HIGHPASS: return "Highpass"sa;
+	case FILTER_BANDPASS: return "Bandpass"sa;
+	default: return "Unknown"sa;
+	}
+}
+
+struct NodeFilter {
+	NodeHeader header;
+	float cutoffFrequency;
+	float resonance;
+	U32 sampleRate;
+	FilterType filterType;
+
+	// Filter coefficients
+	float a0, a1, a2, b0, b1, b2;
+	float x_1, x_2, y_1, y_2;
+
+	void init() {
+		using namespace UI;
+		header.init(NODE_FILTER, "Filter"sa);
+		header.add_widget()->input.init(0.0f);
+		header.add_widget()->input.init(1000.0f);
+		header.add_widget()->input.init(0.7f);
+		header.add_widget()->output.init();
+		sampleRate = 44100;
+		cutoffFrequency = 1000.0f;
+		resonance = 0.7f;
+		filterType = FILTER_LOWPASS;
+		using namespace UI;
+		BoxHandle dropdownBox = alloc_box();
+		dropdownBox.unsafeBox->flags |= BOX_FLAG_INVISIBLE;
+		dropdownBox.unsafeBox->layoutDirection = LAYOUT_DIRECTION_RIGHT;
+		dropdownBox.unsafeBox->sizeParentPercent.x = 1.0F;
+
+		UI_WORKING_BOX(dropdownBox) {
+			spacer();
+			BoxHandle filterSelector = text_button("Filter Type"sa, nullptr);
+			filterSelector.unsafeBox->userData[1] = UPtr(this);
+			filterSelector.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+				if (comm.leftClicked) {
+					UI_BACKGROUND_COLOR((V4F32{ 0.15F, 0.15F, 0.15F, 1.0F }))
+						UI_ADD_CONTEXT_MENU(BoxHandle{}, (V2F32{ comm.renderArea.minX, comm.renderArea.maxY })) {
+						contextMenuBox.unsafeBox->contentScale = comm.scale;
+						workingBox.unsafeBox->userData[1] = box->userData[1];
+						BoxConsumer callback = [](Box* box) {
+							NodeFilter* filter = reinterpret_cast<NodeFilter*>(box->parent->userData[1]);
+							filter->filterType = static_cast<FilterType>(box->userData[1]);
+							filter->setFilter(filter->cutoffFrequency, filter->resonance, filter->filterType);
+						};
+
+						for (int op = FILTER_LOWPASS; op <= FILTER_BANDPASS; ++op) {
+							text_button(filterTypeName(static_cast<FilterType>(op)), callback).unsafeBox->userData[1] = UPtr(op);
+						}
+					}
+				}
+				return ACTION_PASS;
+			};
+			spacer();
+		}
+		header.add_widget()->customUIElement.init(dropdownBox);
+	}
+
+	void setFilterType(FilterType type) {
+		filterType = type;
+		if (UI::Box* box = header.uiNodeTitleBox.get()) {
+			box->text = filterTypeName(type);
+		}
+	}
+
+	void setFilter(float cutoff, float Q, FilterType type) {
+		switch (type) {
+		case FILTER_LOWPASS:
+			setLowPass(cutoff, Q);
+			break;
+		case FILTER_HIGHPASS:
+			setHighPass(cutoff, Q);
+			break;
+		case FILTER_BANDPASS:
+			setBandPass(cutoff, Q);
+			break;
+		}
+	}
+
+	void setLowPass(float cutoff, float Q) {
+		float w0 = 2.0f * 3.14159265 * cutoff / sampleRate;
+		float alpha = sin(w0) / (2.0f * Q);
+		float cosw0 = cos(w0);
+
+		b0 = (1.0f - cosw0) / 2.0f;
+		b1 = 1.0f - cosw0;
+		b2 = b0;
+		a0 = 1.0f + alpha;
+		a1 = -2.0f * cosw0;
+		a2 = 1.0f - alpha;
+
+		b0 /= a0;
+		b1 /= a0;
+		b2 /= a0;
+		a1 /= a0;
+		a2 /= a0;
+	}
+
+	void setHighPass(float cutoff, float Q) {
+		float w0 = 2.0f * 3.14159265 * cutoff / sampleRate;
+		float alpha = sin(w0) / (2.0f * Q);
+		float cosw0 = cos(w0);
+
+		b0 = (1.0f + cosw0) / 2.0f;
+		b1 = -(1.0f + cosw0);
+		b2 = (1.0f + cosw0) / 2.0f;
+		a0 = 1.0f + alpha;
+		a1 = -2.0f * cosw0;
+		a2 = 1.0f - alpha;
+
+		b0 /= a0;
+		b1 /= a0;
+		b2 /= a0;
+		a1 /= a0;
+		a2 /= a0;
+	}
+
+	void setBandPass(float cutoff, float Q) {
+		float w0 = 2.0f * 3.14159265 * cutoff / sampleRate;
+		float alpha = sin(w0) / (2.0f * Q);
+		float cosw0 = cos(w0);
+
+		b0 = Q * alpha;
+		b1 = 0.0f;
+		b2 = -Q * alpha;
+		a0 = 1.0f + alpha;
+		a1 = -2.0f * cosw0;
+		a2 = 1.0f - alpha;
+
+		b0 /= a0;
+		b1 /= a0;
+		b2 /= a0;
+		a1 /= a0;
+		a2 /= a0;
+	}
+
+	float processSample(float in) {
+		float out = b0 * in + b1 * x_1 + b2 * x_2 - a1 * y_1 - a2 * y_2;
+
+		x_2 = x_1;
+		x_1 = in;
+
+		y_2 = y_1;
+		y_1 = out;
+
+		return out;
+	}
+	void process() {
+		NodeIOValue& inputSignal = header.get_input(0)->value;
+		NodeIOValue& cutoffControl = header.get_input(1)->value;
+		NodeIOValue& resonanceControl = header.get_input(2)->value;
+		NodeIOValue& output = header.get_output(0)->value;
+
+		float newCutoff = std::max(20.0f, static_cast<float>(cutoffControl.buffer[0]));
+		float newResonance = std::max(0.1f, static_cast<float>(resonanceControl.buffer[0]));
+		if (cutoffFrequency != newCutoff || resonance != newResonance) {
+			cutoffFrequency = newCutoff;
+			resonance = newResonance;
+			setFilter(cutoffFrequency, resonance, filterType);
+		}
+
+		for (U32 i = 0; i < output.bufferLength; i++) {
+			output.buffer[i] = processSample(inputSignal.buffer[i]);
+		}
+	}
+
+	void add_to_ui() {
+		using namespace UI;
+		Box* box = header.add_to_ui();
+	}
+};
+
 enum MathOp {
 	// Unary
 	MATH_OP_NEG,

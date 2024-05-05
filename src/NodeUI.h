@@ -134,6 +134,9 @@ struct Panel {
 			if (comm.keyPressed == Win32::KEY_S) {
 				panel.nodeGraph->create_node<Nodes::NodeSampler>(mouseRelative);
 			}
+			if (comm.keyPressed == Win32::KEY_F) {
+				panel.nodeGraph->create_node<Nodes::NodeFilter>(mouseRelative);
+			}
 
 			if (comm.rightClickStart) {
 				UI_ADD_CONTEXT_MENU(BoxHandle{}, comm.mousePos) {
@@ -157,6 +160,9 @@ struct Panel {
 					text_button("Sampler"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSampler>(bitcast<V2F32>(box->parent->userData[1]));
 					});
+					text_button("Filter"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeFilter>(bitcast<V2F32>(box->parent->userData[1]));
+						});
 					BoxHandle test = generic_box();
 					test.unsafeBox->flags |= BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION | BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
 					test.unsafeBox->text = "Another context menu"sa;
