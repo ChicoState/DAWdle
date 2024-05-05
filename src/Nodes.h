@@ -28,7 +28,7 @@ void process_node(NodeHeader* node);
 #define NODES \
 	X(TIME_IN, NodeTimeIn)\
 	X(CHANNEL_OUT, NodeChannelOut)\
-	X(SINE, NodeSine)\
+	X(WAVE, NodeWave)\
 	X(MATH, NodeMathOp)\
 	X(OSCILLOSCOPE, NodeOscilloscope)\
 	X(SAMPLER, NodeSampler)
@@ -632,32 +632,147 @@ struct NodeChannelOut {
 		Box* box = header.add_to_ui();
 	}
 };
-struct NodeSine {
+
+__m256i lcg_a = _mm256_set1_epi32(1664525);
+__m256i lcg_c = _mm256_set1_epi32(1013904223);
+__m256i lcg_seed = _mm256_set1_epi32(12345);
+__m256 random_f32() {
+	lcg_seed = _mm256_add_epi32(_mm256_mullo_epi32(lcg_seed, lcg_a), lcg_c);
+	__m256 float_0_to_1 = _mm256_cvtepi32_ps(_mm256_and_si256(lcg_seed, _mm256_set1_epi32(0x7FFFFFFF)));
+	float_0_to_1 = _mm256_mul_ps(float_0_to_1, _mm256_set1_ps(1.0f / 0x7FFFFFFF));
+	return _mm256_sub_ps(_mm256_mul_ps(float_0_to_1, _mm256_set1_ps(2.0f)), _mm256_set1_ps(1.0f));
+}
+
+enum Waveform {
+	WAVE_SINE,
+	WAVE_SAWTOOTH,
+	WAVE_SQUARE,
+	WAVE_TRIANGLE,
+	WAVE_NOISE
+};
+
+StrA waveform_name(Waveform w) {
+	switch (w) {
+	case WAVE_SINE:      return "Sine"sa;
+	case WAVE_SAWTOOTH:  return "Sawtooth"sa;
+	case WAVE_SQUARE:    return "Square"sa;
+	case WAVE_TRIANGLE:  return "Triangle"sa;
+	case WAVE_NOISE:     return "Noise"sa;
+	default:             return ""sa;
+	}
+}
+
+struct NodeWave {
 	NodeHeader header;
 	static const U32 TIME_INPUT_IDX = 0;
 	static const U32 FREQUENCY_INPUT_IDX = 1;
+	Waveform waveform = WAVE_SINE;
+
+	void set_waveform(Waveform newWaveform) {
+		waveform = newWaveform;
+		if (UI::Box* box = header.uiNodeTitleBox.get()) {
+			box->text = waveform_name(newWaveform);
+		}
+	}
 
 	void init() {
-		header.init(NODE_SINE, "Sine"sa);
+		header.init(NODE_WAVE, "Basic Wave"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 		header.add_widget()->input.init(0.0);
+		using namespace UI;
+		BoxHandle dropdownBox = alloc_box();
+		dropdownBox.unsafeBox->flags |= BOX_FLAG_INVISIBLE;
+		dropdownBox.unsafeBox->layoutDirection = LAYOUT_DIRECTION_RIGHT;
+		dropdownBox.unsafeBox->sizeParentPercent.x = 1.0F;
+		UI_WORKING_BOX(dropdownBox) {
+			spacer();
+			BoxHandle waveformSelector = text_button("Waveform"sa, nullptr);
+			waveformSelector.unsafeBox->userData[1] = UPtr(this);
+			waveformSelector.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+				if (comm.leftClicked) {
+					UI_BACKGROUND_COLOR((V4F32{ 0.15F, 0.15F, 0.15F, 1.0F }))
+						UI_ADD_CONTEXT_MENU(BoxHandle{}, (V2F32{ comm.renderArea.minX, comm.renderArea.maxY })) {
+						contextMenuBox.unsafeBox->contentScale = comm.scale;
+						workingBox.unsafeBox->userData[1] = box->userData[1];
+						BoxConsumer callback = [](Box* box) {
+							reinterpret_cast<NodeWave*>(box->parent->userData[1])->set_waveform(Waveform(box->userData[1]));
+						};
+
+						for (Waveform op = WAVE_SINE; op <= WAVE_NOISE; op = Waveform(op + 1)) {
+							text_button(waveform_name(op), callback).unsafeBox->userData[1] = UPtr(op);
+						}
+					}
+				}
+				return ACTION_PASS;
+			};
+			spacer();
+		}
+		header.add_widget()->customUIElement.init(dropdownBox);
 	}
+
 	void process() {
 		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
 		NodeIOValue& frequency = header.get_input(FREQUENCY_INPUT_IDX)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 		NodeIOValue* inputs[]{ &time, &frequency };
 		NodeIOValue* outputs[]{ &output };
-		for (U32 i = 0; i < output.bufferLength; i += 8) {
-			__m256d d1 = _mm256_mul_pd(_mm256_load_pd(time.buffer + (i & time.bufferMask)), _mm256_load_pd(frequency.buffer + (i & frequency.bufferMask)));
-			__m256d d2 = _mm256_mul_pd(_mm256_load_pd(time.buffer + ((i + 4) & time.bufferMask)), _mm256_load_pd(frequency.buffer + ((i + 4) & frequency.bufferMask)));
-			// Truncate in double precision. Sine is fine in floating point as long as the value is in range
-			d1 = _mm256_sub_pd(d1, _mm256_round_pd(d1, _MM_ROUND_MODE_DOWN));
-			d2 = _mm256_sub_pd(d2, _mm256_round_pd(d2, _MM_ROUND_MODE_DOWN));
-			__m256 sineResult = sinf32x8(_mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(d1)), _mm256_cvtpd_ps(d2), 1));
-			_mm256_store_pd(output.buffer + i, _mm256_cvtps_pd(_mm256_castps256_ps128(sineResult)));
-			_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(sineResult, 1)));
+		switch (waveform) {
+		case WAVE_SINE:
+			for (U32 i = 0; i < output.bufferLength; i += 8) {
+				__m256d d1 = _mm256_mul_pd(_mm256_load_pd(time.buffer + (i & time.bufferMask)), _mm256_load_pd(frequency.buffer + (i & frequency.bufferMask)));
+				__m256d d2 = _mm256_mul_pd(_mm256_load_pd(time.buffer + ((i + 4) & time.bufferMask)), _mm256_load_pd(frequency.buffer + ((i + 4) & frequency.bufferMask)));
+				// Truncate in double precision. Sine is fine in floating point as long as the value is in range
+				d1 = _mm256_sub_pd(d1, _mm256_round_pd(d1, _MM_ROUND_MODE_DOWN));
+				d2 = _mm256_sub_pd(d2, _mm256_round_pd(d2, _MM_ROUND_MODE_DOWN));
+				__m256 sineResult = sinf32x8(_mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(d1)), _mm256_cvtpd_ps(d2), 1));
+				_mm256_store_pd(output.buffer + i, _mm256_cvtps_pd(_mm256_castps256_ps128(sineResult)));
+				_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(sineResult, 1)));
+			}
+			break;
+		case WAVE_SAWTOOTH:
+			for (U32 i = 0; i < output.bufferLength; i += 8) {
+				__m256d d1 = _mm256_mul_pd(_mm256_load_pd(time.buffer + (i & time.bufferMask)), _mm256_load_pd(frequency.buffer + (i & frequency.bufferMask)));
+				__m256d d2 = _mm256_mul_pd(_mm256_load_pd(time.buffer + ((i + 4) & time.bufferMask)), _mm256_load_pd(frequency.buffer + ((i + 4) & frequency.bufferMask)));
+				d1 = _mm256_sub_pd(d1, _mm256_round_pd(d1, _MM_ROUND_MODE_DOWN));
+				d2 = _mm256_sub_pd(d2, _mm256_round_pd(d2, _MM_ROUND_MODE_DOWN));
+				__m256 sawtoothResult = _mm256_fmsub_ps(_mm256_set1_ps(2.0f), _mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(d1)), _mm256_cvtpd_ps(d2), 1), _mm256_set1_ps(1.0f));
+				_mm256_store_pd(output.buffer + i, _mm256_cvtps_pd(_mm256_castps256_ps128(sawtoothResult)));
+				_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(sawtoothResult, 1)));
+			}
+			break;
+		case WAVE_SQUARE:
+			for (U32 i = 0; i < output.bufferLength; i += 8) {
+				__m256d d1 = _mm256_mul_pd(_mm256_load_pd(time.buffer + (i & time.bufferMask)), _mm256_load_pd(frequency.buffer + (i & frequency.bufferMask)));
+				__m256d d2 = _mm256_mul_pd(_mm256_load_pd(time.buffer + ((i + 4) & time.bufferMask)), _mm256_load_pd(frequency.buffer + ((i + 4) & frequency.bufferMask)));
+				d1 = _mm256_sub_pd(d1, _mm256_round_pd(d1, _MM_ROUND_MODE_DOWN));
+				d2 = _mm256_sub_pd(d2, _mm256_round_pd(d2, _MM_ROUND_MODE_DOWN));
+				__m256 squareResult = _mm256_blendv_ps(_mm256_set1_ps(-1.0f), _mm256_set1_ps(1.0f), _mm256_cmp_ps(_mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(d1)), _mm256_cvtpd_ps(d2), 1), _mm256_set1_ps(0.5f), _CMP_GE_OQ));
+				_mm256_store_pd(output.buffer + i, _mm256_cvtps_pd(_mm256_castps256_ps128(squareResult)));
+				_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(squareResult, 1)));
+			}
+			break;
+		case WAVE_TRIANGLE:
+			__m256 sign_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffffff));
+			for (U32 i = 0; i < output.bufferLength; i += 8) {
+				__m256d d1 = _mm256_mul_pd(_mm256_load_pd(time.buffer + (i & time.bufferMask)), _mm256_load_pd(frequency.buffer + (i & frequency.bufferMask)));
+				__m256d d2 = _mm256_mul_pd(_mm256_load_pd(time.buffer + ((i + 4) & time.bufferMask)), _mm256_load_pd(frequency.buffer + ((i + 4) & frequency.bufferMask)));
+				d1 = _mm256_sub_pd(d1, _mm256_round_pd(d1, _MM_ROUND_MODE_DOWN));
+				d2 = _mm256_sub_pd(d2, _mm256_round_pd(d2, _MM_ROUND_MODE_DOWN));
+				__m256 absResult = _mm256_and_ps(_mm256_fmsub_ps(_mm256_set1_ps(2.0f), _mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(d1)), _mm256_cvtpd_ps(d2), 1), _mm256_set1_ps(1.0f)), sign_mask);
+				__m256 triangleResult = _mm256_mul_ps(absResult, _mm256_set1_ps(2.0f));
+				triangleResult = _mm256_sub_ps(triangleResult, _mm256_set1_ps(1.0f));
+				_mm256_store_pd(output.buffer + i, _mm256_cvtps_pd(_mm256_castps256_ps128(triangleResult)));
+				_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(triangleResult, 1)));
+			}
+			break;
+		case WAVE_NOISE:
+			for (U32 i = 0; i < output.bufferLength; i += 8) {
+				__m256 noiseResult = random_f32();
+				_mm256_store_pd(output.buffer + i, _mm256_cvtps_pd(_mm256_castps256_ps128(noiseResult)));
+				_mm256_store_pd(output.buffer + i + 4, _mm256_cvtps_pd(_mm256_extractf128_ps(noiseResult, 1)));
+			}
+			break;
 		}
 	}
 	void add_to_ui() {

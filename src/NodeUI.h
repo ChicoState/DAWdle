@@ -125,13 +125,13 @@ struct Panel {
 			if (comm.keyPressed == Win32::KEY_T) {
 				panel.nodeGraph->create_node<Nodes::NodeTimeIn>(mouseRelative);
 			}
-			if (comm.keyPressed == Win32::KEY_S) {
-				panel.nodeGraph->create_node<Nodes::NodeSine>(mouseRelative);
+			if (comm.keyPressed == Win32::KEY_W) {
+				panel.nodeGraph->create_node<Nodes::NodeWave>(mouseRelative);
 			}
 			if (comm.keyPressed == Win32::KEY_O) {
 				panel.nodeGraph->create_node<Nodes::NodeOscilloscope>(mouseRelative);
 			}
-			if (comm.keyPressed == Win32::KEY_A) {
+			if (comm.keyPressed == Win32::KEY_S) {
 				panel.nodeGraph->create_node<Nodes::NodeSampler>(mouseRelative);
 			}
 
@@ -149,7 +149,7 @@ struct Panel {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeTimeIn>(bitcast<V2F32>(box->parent->userData[1]));
 					});
 					text_button("Tone"sa, [](Box* box) {
-						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSine>(bitcast<V2F32>(box->parent->userData[1]));
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeWave>(bitcast<V2F32>(box->parent->userData[1]));
 					});
 					text_button("Oscilloscope"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeOscilloscope>(bitcast<V2F32>(box->parent->userData[1]));

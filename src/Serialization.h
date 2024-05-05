@@ -31,6 +31,7 @@ namespace Serialization {
         std::vector<U32> inputCounts;
         std::vector<std::pair<U32, U32>> connectionIndices;
         std::vector<MathOp> mathOps;
+        std::vector<Waveform> waveforms;
         std::vector<std::pair<char*, U32>> inputStrs;
 
         U32 currentSerializeIndex = 0;
@@ -46,6 +47,10 @@ namespace Serialization {
             if (node->type == NODE_MATH) { 
                 NodeMathOp& mathNode = *reinterpret_cast<NodeMathOp*>(node);
                 mathOps.push_back(mathNode.op); 
+            }
+            if (node->type == NODE_WAVE) {
+                NodeWave& waveNode = *reinterpret_cast<NodeWave*>(node);
+                waveforms.push_back(waveNode.waveform);
             }
         }
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
@@ -85,6 +90,7 @@ namespace Serialization {
         size_t inputStrIndex = 0;
         size_t samplerIndex = 0;
         size_t mathNodeIndex = 0;
+        size_t waveNodeIndex = 0;
         for (size_t i = 0; i < nodeBasicData.size(); ++i) {
             const auto& [type, offset] = nodeBasicData[i];
             outFile.write(reinterpret_cast<const char*>(&type), sizeof(type));
@@ -106,7 +112,12 @@ namespace Serialization {
                 outFile.write(reinterpret_cast<const char*>(pathData), pathLength);
             }
             if (type == NODE_MATH) {
-                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex++]), sizeof(mathOps[mathNodeIndex++]));
+                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex]), sizeof(mathOps[mathNodeIndex]));
+                mathNodeIndex++;
+            }
+            if (type == NODE_WAVE) {
+                outFile.write(reinterpret_cast<const char*>(&waveforms[waveNodeIndex]), sizeof(waveforms[waveNodeIndex]));
+                waveNodeIndex++;
             }
         }
 
@@ -174,6 +185,12 @@ namespace Serialization {
                 MathOp op;
                 inFile.read(reinterpret_cast<char*>(&op), sizeof(op));
                 mathNode.set_op(op);
+            }
+            if (type == NODE_WAVE) {
+                NodeWave& waveNode = *reinterpret_cast<NodeWave*>(node);
+                Waveform waveform;
+                inFile.read(reinterpret_cast<char*>(&waveform), sizeof(waveform));
+                waveNode.set_waveform(waveform);
             }
         }
 
