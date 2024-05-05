@@ -112,10 +112,12 @@ namespace Serialization {
                 outFile.write(reinterpret_cast<const char*>(pathData), pathLength);
             }
             if (type == NODE_MATH) {
-                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex++]), sizeof(mathOps[mathNodeIndex++]));
+                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex]), sizeof(mathOps[mathNodeIndex]));
+                mathNodeIndex++;
             }
             if (type == NODE_WAVE) {
-                outFile.write(reinterpret_cast<const char*>(&waveforms[waveNodeIndex++]), sizeof(waveforms[waveNodeIndex++]));
+                outFile.write(reinterpret_cast<const char*>(&waveforms[waveNodeIndex]), sizeof(waveforms[waveNodeIndex]));
+                waveNodeIndex++;
             }
         }
 
