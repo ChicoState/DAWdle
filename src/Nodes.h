@@ -1073,7 +1073,7 @@ void process_node(NodeHeader* node) {
 			if (NodeWidgetOutput* input = inWidget->inputHandle.get()) {
 				process_node(input->header.parent);
 				inWidget->value = input->value;
-				if (inWidget->program.valid) {
+				if (inWidget->program.valid && (!inWidget->inputHandle.get() || inWidget->program.operatesOnBuffer)) {
 					if (inWidget->value.bufferMask == U32_MAX) {
 						for (U32 i = 0; i < inWidget->value.bufferLength; i += 4) {
 							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer + i)));
