@@ -643,7 +643,7 @@ __m256 random_f32() {
 	return _mm256_sub_ps(_mm256_mul_ps(float_0_to_1, _mm256_set1_ps(2.0f)), _mm256_set1_ps(1.0f));
 }
 
-enum WaveformType {
+enum Waveform {
 	WAVE_SINE,
 	WAVE_SAWTOOTH,
 	WAVE_SQUARE,
@@ -651,7 +651,7 @@ enum WaveformType {
 	WAVE_NOISE
 };
 
-StrA waveform_name(WaveformType w) {
+StrA waveform_name(Waveform w) {
 	switch (w) {
 	case WAVE_SINE:      return "Sine"sa;
 	case WAVE_SAWTOOTH:  return "Sawtooth"sa;
@@ -666,9 +666,9 @@ struct NodeWave {
 	NodeHeader header;
 	static const U32 TIME_INPUT_IDX = 0;
 	static const U32 FREQUENCY_INPUT_IDX = 1;
-	WaveformType waveform = WAVE_SINE;
+	Waveform waveform = WAVE_SINE;
 
-	void set_waveform(WaveformType newWaveform) {
+	void set_waveform(Waveform newWaveform) {
 		waveform = newWaveform;
 		if (UI::Box* box = header.uiNodeTitleBox.get()) {
 			box->text = waveform_name(newWaveform);
@@ -676,7 +676,7 @@ struct NodeWave {
 	}
 
 	void init() {
-		header.init(NODE_WAVE, "Wave"sa);
+		header.init(NODE_WAVE, "Basic Wave"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 		header.add_widget()->input.init(0.0);
@@ -696,10 +696,10 @@ struct NodeWave {
 						contextMenuBox.unsafeBox->contentScale = comm.scale;
 						workingBox.unsafeBox->userData[1] = box->userData[1];
 						BoxConsumer callback = [](Box* box) {
-							reinterpret_cast<NodeWave*>(box->parent->userData[1])->set_waveform(WaveformType(box->userData[1]));
+							reinterpret_cast<NodeWave*>(box->parent->userData[1])->set_waveform(Waveform(box->userData[1]));
 						};
 
-						for (WaveformType op = WAVE_SINE; op <= WAVE_NOISE; op = WaveformType(op + 1)) {
+						for (Waveform op = WAVE_SINE; op <= WAVE_NOISE; op = Waveform(op + 1)) {
 							text_button(waveform_name(op), callback).unsafeBox->userData[1] = UPtr(op);
 						}
 					}
