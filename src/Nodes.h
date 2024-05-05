@@ -225,6 +225,7 @@ struct NodeWidgetInput {
 	NodeWidgetHandle<NodeWidgetOutput> inputHandle;
 	NodeIOValue value;
 	F64 defaultValue;
+	UI::BoxHandle sliderHandle;
 
 	V2F32 connectionRenderPos;
 
@@ -249,12 +250,12 @@ struct NodeWidgetInput {
 			spacer(6.0F);
 
 			UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.2F, 0.1F, 1.0F }))
-			slider_number(-F64_INF, F64_INF, 0.1, [](Box* box) {
+			sliderHandle = slider_number(-F64_INF, F64_INF, 0.1, [](Box* box) {
 				NodeWidgetInput& input = *reinterpret_cast<NodeWidgetInput*>(box->userData[3]);
-					StrA textStr = StrA{ box->typedTextBuffer, box->numTypedCharacters };
 					StrA parseStr{ box->typedTextBuffer, box->numTypedCharacters };
 					tbrs::parse_program(&input.program, parseStr);
-			}).unsafeBox->userData[3] = UPtr(this);
+			});
+			sliderHandle .unsafeBox->userData[3] = UPtr(this);
 			UI_SIZE((V2F32{ 8.0F, 8.0F })) {
 				Box* connector = generic_box().unsafeBox;
 				connector->flags = BOX_FLAG_FLOATING_X | BOX_FLAG_CUSTOM_DRAW | BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS;

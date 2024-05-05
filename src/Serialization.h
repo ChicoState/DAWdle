@@ -2,7 +2,7 @@
 #include "Nodes.h"
 
 const U32 SERIALIZE_FILE_MAGIC = 0x44574144;
-const U32 CURRENT_SERIALIZE_VERSION = DRILL_LIB_MAKE_VERSION(1, 0, 0);
+const U32 CURRENT_SERIALIZE_VERSION = DRILL_LIB_MAKE_VERSION(1, 1, 0);
 
 namespace Nodes {
     NodeHeader* createNodeByType(NodeGraph& graph, NodeType type, V2F32 pos) {
@@ -31,6 +31,7 @@ namespace Serialization {
         std::vector<U32> inputCounts;
         std::vector<std::pair<U32, U32>> connectionIndices;
         std::vector<MathOp> mathOps;
+        std::vector<std::pair<char*, U32>> inputStrs;
 
         U32 currentSerializeIndex = 0;
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
@@ -56,6 +57,8 @@ namespace Serialization {
             for (NodeWidgetHeader* widget = node->widgetBegin; widget; widget = widget->next) {
                 if (widget->type == NODE_WIDGET_INPUT) {
                     NodeWidgetInput* input = reinterpret_cast<NodeWidgetInput*>(widget);
+                    UI::Box* inputBox = input->sliderHandle.unsafeBox;
+                    inputStrs.emplace_back(inputBox->typedTextBuffer, inputBox->numTypedCharacters);
                     U32 outputNodeIndex = INVALID_NODE_IDX;
                     U32 outputWidgetIndex = 0;
                     if (input->inputHandle.get() && input->inputHandle.get()->header.parent) {
@@ -79,12 +82,24 @@ namespace Serialization {
         outFile.write(reinterpret_cast<const char*>(&SERIALIZE_FILE_MAGIC), sizeof(SERIALIZE_FILE_MAGIC));
         outFile.write(reinterpret_cast<const char*>(&CURRENT_SERIALIZE_VERSION), sizeof(CURRENT_SERIALIZE_VERSION));
         size_t connectionIndex = 0;
+        size_t inputStrIndex = 0;
         size_t samplerIndex = 0;
         size_t mathNodeIndex = 0;
         for (size_t i = 0; i < nodeBasicData.size(); ++i) {
             const auto& [type, offset] = nodeBasicData[i];
             outFile.write(reinterpret_cast<const char*>(&type), sizeof(type));
             outFile.write(reinterpret_cast<const char*>(&offset), sizeof(offset));
+            U32 inputCount = inputCounts[i];
+            outFile.write(reinterpret_cast<const char*>(&inputCount), sizeof(inputCount));
+            for (U32 j = 0; j < inputCount; ++j) {
+                const auto& [outputNodeIndex, outputWidgetIndex] = connectionIndices[connectionIndex++];
+                outFile.write(reinterpret_cast<const char*>(&outputNodeIndex), sizeof(outputNodeIndex));
+                outFile.write(reinterpret_cast<const char*>(&outputWidgetIndex), sizeof(outputWidgetIndex));
+
+                const auto& [inputStr, inputStrLen] = inputStrs[inputStrIndex++];
+                outFile.write(reinterpret_cast<const char*>(&inputStrLen), sizeof(inputStrLen));
+                outFile.write(inputStr, inputStrLen);
+            }
             if (type == NODE_SAMPLER) {
                 const auto& [pathLength, pathData] = samplerData[samplerIndex++];
                 outFile.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
@@ -92,13 +107,6 @@ namespace Serialization {
             }
             if (type == NODE_MATH) {
                 outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex]), sizeof(mathOps[mathNodeIndex]));
-            }
-            U32 inputCount = inputCounts[i];
-            outFile.write(reinterpret_cast<const char*>(&inputCount), sizeof(inputCount));
-            for (U32 j = 0; j < inputCount; ++j) {
-                const auto& [outputNodeIndex, outputWidgetIndex] = connectionIndices[connectionIndex++];
-                outFile.write(reinterpret_cast<const char*>(&outputNodeIndex), sizeof(outputNodeIndex));
-                outFile.write(reinterpret_cast<const char*>(&outputWidgetIndex), sizeof(outputWidgetIndex));
             }
         }
 
@@ -133,6 +141,24 @@ namespace Serialization {
             NodeHeader* node = createNodeByType(graph, type, pos);
             nodeHeaders.push_back(node);
 
+            U32 inputCount;
+            inFile.read(reinterpret_cast<char*>(&inputCount), sizeof(inputCount));
+            std::vector<std::pair<U32, U32>> nodeConnections;
+            for (U32 i = 0; i < inputCount; i++) {
+                U32 outputNodeIndex, outputWidgetIndex;
+                inFile.read(reinterpret_cast<char*>(&outputNodeIndex), sizeof(outputNodeIndex));
+                inFile.read(reinterpret_cast<char*>(&outputWidgetIndex), sizeof(outputWidgetIndex));
+                nodeConnections.push_back({ outputNodeIndex, outputWidgetIndex });
+
+                NodeWidgetInput* input = node->get_input(i);
+                UI::Box* slider = input->sliderHandle.unsafeBox;
+                inFile.read(reinterpret_cast<char*>(&slider->numTypedCharacters), sizeof(slider->numTypedCharacters));
+                inFile.read(slider->typedTextBuffer, slider->numTypedCharacters);
+                StrA parseStr{ slider->typedTextBuffer, slider->numTypedCharacters };
+                tbrs::parse_program(&input->program, parseStr);
+            }
+            connections.push_back(nodeConnections);
+
             if (type == NODE_SAMPLER) {
                 NodeSampler& samplerNode = *reinterpret_cast<NodeSampler*>(node);
                 NodeWidgetSamplerButton& button = *samplerNode.header.get_samplerbutton(0);
@@ -149,17 +175,6 @@ namespace Serialization {
                 inFile.read(reinterpret_cast<char*>(&op), sizeof(op));
                 mathNode.set_op(op);
             }
-
-            U32 inputCount;
-            inFile.read(reinterpret_cast<char*>(&inputCount), sizeof(inputCount));
-            std::vector<std::pair<U32, U32>> nodeConnections;
-            for (U32 i = 0; i < inputCount; i++) {
-                U32 outputNodeIndex, outputWidgetIndex;
-                inFile.read(reinterpret_cast<char*>(&outputNodeIndex), sizeof(outputNodeIndex));
-                inFile.read(reinterpret_cast<char*>(&outputWidgetIndex), sizeof(outputWidgetIndex));
-                nodeConnections.push_back({outputNodeIndex, outputWidgetIndex});
-            }
-            connections.push_back(nodeConnections);
         }
 
         for (size_t i = 0; i < nodeHeaders.size(); i++) {
