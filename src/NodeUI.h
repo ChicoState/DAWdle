@@ -131,7 +131,7 @@ struct Panel {
 			if (comm.keyPressed == Win32::KEY_O) {
 				panel.nodeGraph->create_node<Nodes::NodeOscilloscope>(mouseRelative);
 			}
-			if (comm.keyPressed == Win32::KEY_A) {
+			if (comm.keyPressed == Win32::KEY_S) {
 				panel.nodeGraph->create_node<Nodes::NodeSampler>(mouseRelative);
 			}
 
