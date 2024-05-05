@@ -28,7 +28,7 @@ void process_node(NodeHeader* node);
 #define NODES \
 	X(TIME_IN, NodeTimeIn)\
 	X(CHANNEL_OUT, NodeChannelOut)\
-	X(SINE, NodeSine)\
+	X(WAVE, NodeWave)\
 	X(MATH, NodeMathOp)\
 	X(OSCILLOSCOPE, NodeOscilloscope)\
 	X(SAMPLER, NodeSampler)
@@ -662,7 +662,7 @@ StrA waveform_name(WaveformType w) {
 	}
 }
 
-struct NodeSine {
+struct NodeWave {
 	NodeHeader header;
 	static const U32 TIME_INPUT_IDX = 0;
 	static const U32 FREQUENCY_INPUT_IDX = 1;
@@ -676,7 +676,7 @@ struct NodeSine {
 	}
 
 	void init() {
-		header.init(NODE_SINE, "Sine"sa);
+		header.init(NODE_WAVE, "Wave"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 		header.add_widget()->input.init(0.0);
@@ -696,7 +696,7 @@ struct NodeSine {
 						contextMenuBox.unsafeBox->contentScale = comm.scale;
 						workingBox.unsafeBox->userData[1] = box->userData[1];
 						BoxConsumer callback = [](Box* box) {
-							reinterpret_cast<NodeSine*>(box->parent->userData[1])->set_waveform(WaveformType(box->userData[1]));
+							reinterpret_cast<NodeWave*>(box->parent->userData[1])->set_waveform(WaveformType(box->userData[1]));
 						};
 
 						for (WaveformType op = WAVE_SINE; op <= WAVE_NOISE; op = WaveformType(op + 1)) {
