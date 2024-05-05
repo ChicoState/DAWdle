@@ -853,6 +853,13 @@ struct NodeFilter {
 		header.add_widget()->customUIElement.init(dropdownBox);
 	}
 
+	void setFilterType(FilterType type) {
+		filterType = type;
+		if (UI::Box* box = header.uiNodeTitleBox.get()) {
+			box->text = filterTypeName(type);
+		}
+	}
+
 	void setFilter(float cutoff, float Q, FilterType type) {
 		switch (type) {
 		case FILTER_LOWPASS:
