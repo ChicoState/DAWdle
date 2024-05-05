@@ -31,7 +31,8 @@ void process_node(NodeHeader* node);
 	X(WAVE, NodeWave)\
 	X(MATH, NodeMathOp)\
 	X(OSCILLOSCOPE, NodeOscilloscope)\
-	X(SAMPLER, NodeSampler)
+	X(SAMPLER, NodeSampler)\
+	X(FILTER, NodeFilter)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -780,6 +781,86 @@ struct NodeWave {
 		Box* box = header.add_to_ui();
 	}
 };
+
+struct NodeFilter {
+	NodeHeader header;
+	float cutoffFrequency;
+	float resonance;
+	U32 sampleRate;
+
+	// Filter coefficients
+	float a0, a1, a2, b0, b1, b2;
+	float x_1, x_2, y_1, y_2;
+
+	void init() {
+		using namespace UI;
+		header.init(NODE_FILTER, "Filter"sa);
+		header.add_widget()->input.init(0.0f);
+		header.add_widget()->input.init(1000.0f);
+		header.add_widget()->input.init(0.7f);
+		header.add_widget()->output.init();
+		sampleRate = 44100;
+		cutoffFrequency = 1000.0f;
+		resonance = 0.7f;
+		setLowPass(cutoffFrequency, resonance);
+	}
+
+
+	void setLowPass(float cutoff, float Q) {
+		float w0 = 2.0f * 3.14159265 * cutoff / sampleRate;
+		float alpha = sin(w0) / (2.0f * Q);
+		float cosw0 = cos(w0);
+
+		b0 = (1.0f - cosw0) / 2.0f;
+		b1 = 1.0f - cosw0;
+		b2 = b0;
+		a0 = 1.0f + alpha;
+		a1 = -2.0f * cosw0;
+		a2 = 1.0f - alpha;
+
+		b0 /= a0;
+		b1 /= a0;
+		b2 /= a0;
+		a1 /= a0;
+		a2 /= a0;
+	}
+
+	float processSample(float in) {
+		float out = b0 * in + b1 * x_1 + b2 * x_2 - a1 * y_1 - a2 * y_2;
+
+		x_2 = x_1;
+		x_1 = in;
+
+		y_2 = y_1;
+		y_1 = out;
+
+		return out;
+	}
+	void process() {
+		NodeIOValue& inputSignal = header.get_input(0)->value;
+		NodeIOValue& cutoffControl = header.get_input(1)->value;
+		NodeIOValue& resonanceControl = header.get_input(2)->value;
+		NodeIOValue& output = header.get_output(0)->value;
+
+		float newCutoff = std::max(20.0f, static_cast<float>(cutoffControl.buffer[0]));
+		float newResonance = std::max(0.1f, static_cast<float>(resonanceControl.buffer[0]));
+		if (cutoffFrequency != newCutoff || resonance != newResonance) {
+			cutoffFrequency = newCutoff;
+			resonance = newResonance;
+			setLowPass(cutoffFrequency, resonance);
+		}
+
+		for (U32 i = 0; i < output.bufferLength; i++) {
+			output.buffer[i] = processSample(inputSignal.buffer[i]);
+		}
+	}
+
+	void add_to_ui() {
+		using namespace UI;
+		Box* box = header.add_to_ui();
+	}
+};
+
 enum MathOp {
 	// Unary
 	MATH_OP_NEG,
