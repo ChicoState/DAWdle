@@ -178,6 +178,14 @@ namespace String {
 		EXPECT_EQ(str.slice(-6, -3), "Dot"sa);
 	}
 
+	TEST(Slice, PartiallyOutOfBounds) {
+		EXPECT_EQ(str.slice(6, 20), "Dotcom"sa);
+	}
+
+	TEST(Slice, FullyOutOfBounds) {
+		EXPECT_EQ(str.slice(20, 99), ""sa);
+	}
+
 	TEST(Prefix, ZeroLengthPrefix) {
 		EXPECT_EQ(str.prefix(0), ""sa);
 	}
@@ -249,6 +257,7 @@ namespace String {
 	TEST(Substr, TooLong) {
 		EXPECT_EQ(str.substr(9, 12), "com"sa);
 	}
+
 	TEST(Begin, Begin) {
 		EXPECT_EQ(*str.begin(), 'd');
 	}
