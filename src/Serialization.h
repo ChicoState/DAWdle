@@ -106,7 +106,8 @@ namespace Serialization {
                 outFile.write(reinterpret_cast<const char*>(pathData), pathLength);
             }
             if (type == NODE_MATH) {
-                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex++]), sizeof(mathOps[mathNodeIndex++]));
+                outFile.write(reinterpret_cast<const char*>(&mathOps[mathNodeIndex]), sizeof(mathOps[mathNodeIndex]));
+                mathNodeIndex++;
             }
         }
 
