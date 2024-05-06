@@ -329,3 +329,35 @@ namespace String {
 		EXPECT_EQ(stracat(globalArena, "dawdle"sa, ""sa, "com"sa), "dawdlecom"sa);
 	}
 }
+
+namespace ArenaArray {
+	TEST(Pushback_Contains, Single) {
+		ArenaArrayList<U32> test;
+		test.push_back(42);
+		EXPECT_TRUE(test.contains(42));
+	}
+
+	TEST(Popback, Single) {
+		ArenaArrayList<U32> test;
+		test.push_back(42);
+		test.pop_back();
+		EXPECT_FALSE(test.contains(42));
+	}
+
+	TEST(Empty, IsEmpty) {
+		ArenaArrayList<U32> test;
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Empty, IsNotEmpty) {
+		ArenaArrayList<U32> test;
+		test.push_back(42);
+		EXPECT_FALSE(test.empty());
+	}
+
+	TEST(Last, CheckLast) {
+		ArenaArrayList<U32> test;
+		test.push_back(42);
+		EXPECT_EQ(test.last(), 42);
+	}
+}
