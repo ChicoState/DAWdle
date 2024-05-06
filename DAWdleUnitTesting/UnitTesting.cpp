@@ -361,3 +361,160 @@ namespace ArenaArray {
 		EXPECT_EQ(test.last(), 42);
 	}
 }
+
+namespace MemoryTests {
+	TEST(Memcpy, BasicCopy) {
+		char src[] = "hello";
+		char dest[6];
+		memcpy(dest, src, sizeof(src));
+		EXPECT_STREQ(src, dest);
+	}
+
+	TEST(Memcpy, OverlappingCopy) {
+		char str[] = "overlapping";
+		char dest[12];
+		memcpy(dest, str + 4, 9);
+		EXPECT_STREQ("lapping", dest);
+	}
+
+	TEST(Memcpy, ZeroSizeCopy) {
+		char src[] = "hello";
+		char dest[6] = "world";
+		memcpy(dest, src, 0);
+		EXPECT_STREQ("world", dest);
+	}
+
+	TEST(Memcpy, LargeCopy) {
+		char src[1000];
+		char dest[1000];
+		memset(src, 'X', sizeof(src));
+		memset(dest, 'A', sizeof(dest));
+		memcpy(dest, src, sizeof(src));
+		EXPECT_TRUE(memcmp(src, dest, sizeof(src)) == 0);
+	}
+
+	TEST(Memcpy, ReverseCopy) {
+		char src[] = "hello";
+		char dest[6];
+		memcpy(dest, src + 4, 2);
+		EXPECT_STREQ("o", dest);
+	}
+
+	TEST(Memcpy, NonCharTypeCopy) {
+		int src[] = { 1, 2, 3, 4, 5 };
+		int dest[5] = { 0 };
+		memcpy(dest, src, sizeof(src));
+		EXPECT_TRUE(memcmp(src, dest, sizeof(src)) == 0);
+	}
+
+	TEST(Memset, BasicSet) {
+		char str[] = "hello";
+		memset(str, 'X', 5);
+		EXPECT_STREQ("XXXXX", str);
+	}
+
+	TEST(Memset, MemsetReturn) {
+		char str[5];
+		EXPECT_EQ(memset(str, 'X', 5), str);
+	}
+
+	TEST(Memset, LargeSet) {
+		char str[1000];
+		memset(str, 'X', sizeof(str));
+		for (int i = 0; i < sizeof(str); ++i) {
+			EXPECT_EQ(str[i], 'X');
+		}
+	}
+
+	TEST(Memset, NonCharTypeSet) {
+		int arr[10];
+		memset(arr, 0, sizeof(arr));
+		for (int i = 0; i < 10; ++i) {
+			EXPECT_EQ(arr[i], 0);
+		}
+	}
+
+	TEST(Strcmp, EqualStrings) {
+		EXPECT_EQ(strcmp("hello", "hello"), 0);
+	}
+
+	TEST(Strcmp, DifferentStrings) {
+		EXPECT_EQ(strcmp("hello", "hell"), 1);
+		EXPECT_EQ(strcmp("hello", "helloo"), -1);
+	}
+
+	TEST(Strcmp, EmptyStrings) {
+		EXPECT_EQ(strcmp("", ""), 0);
+	}
+
+	TEST(Strcmp, OneEmptyString) {
+		EXPECT_EQ(strcmp("", "dotcom"), -1);
+	}
+
+	TEST(Strcmp, CaseSensitiveStrings) {
+		EXPECT_EQ(strcmp("Hello", "hello"), -1);
+		EXPECT_EQ(strcmp("hello", "Hello"), 1);
+	}
+
+	TEST(Strcmp, MultiByteCharacters) {
+		EXPECT_EQ(strcmp("éstevan", "estevan"), 1);
+	}
+
+	TEST(Strcmp, NullTerminatedCheck) {
+		char str[] = "hello";
+		EXPECT_EQ(strcmp(str, "hello\0extra"), 0);
+	}
+
+	TEST(Strlen, BasicLength) {
+		EXPECT_EQ(strlen("hello"), 5);
+	}
+
+	TEST(Strlen, EmptyString) {
+		EXPECT_EQ(strlen(""), 0);
+	}
+
+	TEST(Strlen, LongString) {
+		EXPECT_EQ(strlen("this is a long string with many characters"), 42);
+	}
+
+	TEST(Strlen, ExtremelyLongString) {
+		char str[1000];
+		for (int i = 0; i < sizeof(str); ++i) {
+			str[i] = 'c';
+		}
+		str[sizeof(str) - 1] = '\0';
+		EXPECT_EQ(strlen(str), 999);
+	}
+
+	TEST(Memcmp, EqualMemory) {
+		int arr1[] = { 1, 2, 3, 4, 5 };
+		int arr2[] = { 1, 2, 3, 4, 5 };
+		EXPECT_EQ(memcmp(arr1, arr2, sizeof(arr1)), 0);
+	}
+
+	TEST(Memcmp, DifferentMemory) {
+		int arr1[] = { 1, 2, 3, 4, 5 };
+		int arr2[] = { 1, 2, 3, 4, 6 };
+		EXPECT_LT(memcmp(arr1, arr2, sizeof(arr1)), 0);
+	}
+
+	TEST(Memcmp, EmptyMemory) {
+		int arr1[10];
+		int arr2[10];
+		EXPECT_EQ(memcmp(arr1, arr2, sizeof(arr1)), 0);
+	}
+
+	TEST(Memcmp, LargeMemoryComparison) {
+		char buffer1[1000];
+		char buffer2[1000];
+		memset(buffer1, 'A', sizeof(buffer1));
+		memset(buffer2, 'A', sizeof(buffer2));
+		buffer2[500] = 'B';
+		EXPECT_LT(memcmp(buffer1, buffer2, sizeof(buffer1)), 0);
+	}
+	TEST(Memcmp, ComparePartialMemory) {
+		char buffer1[10] = "hello";
+		char buffer2[10] = "hello";
+		EXPECT_EQ(memcmp(buffer1, buffer2, 3), 0);
+	}
+}
