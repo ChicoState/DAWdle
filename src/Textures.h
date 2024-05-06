@@ -38,6 +38,8 @@ Texture uiX;
 Texture nodeConnect;
 Texture uiIncrementLeft;
 Texture uiIncrementRight;
+Texture uiIncrementUp;
+Texture uiIncrementDown;
 
 ArenaArrayList<Texture*> allTextures;
 ArenaArrayList<VkDeviceMemory> memoryUsed;
@@ -198,6 +200,8 @@ void load_all() {
 	load_png(&nodeConnect, "resources/textures/node_connect.png"sa);
 	load_png(&uiIncrementLeft, "resources/textures/ui_increment_left.png"sa);
 	load_png(&uiIncrementRight, "resources/textures/ui_increment_right.png"sa);
+	load_png(&uiIncrementUp, "resources/textures/ui_increment_up.png"sa);
+	load_png(&uiIncrementDown, "resources/textures/ui_increment_down.png"sa);
 	load_msdf(&fontAtlas, "resources/textures/font.ddf"sa);
 }
 

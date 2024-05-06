@@ -15,6 +15,7 @@ F64 deltaTime;
 F64 totalTime;
 // F32 cannot be used for total audio time. The precision is insufficient and results in audible artifacts after only a handful of seconds
 F64 audioPlaybackTime;
+B32 isPaused;
 U32 audioBufferCount;
 F32 audioBuffer[Nodes::PROCESS_BUFFER_SIZE];
 
@@ -23,7 +24,10 @@ Nodes::NodeGraph primaryGraph;
 HANDLE audioThread;
 B32 audioThreadShouldShutdown;
 
-void fill_audio_buffer(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmount) {
+B32 fill_audio_buffer(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmount) {
+	if (isPaused) {
+		return false;
+	}
 	UI::modificationLock.lock_read();
 	U32 currentSample = 0;
 	while (currentSample < numSamples) {
@@ -47,10 +51,11 @@ void fill_audio_buffer(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmo
 	}
 	audioPlaybackTime += timeAmount;
 	UI::modificationLock.unlock_read();
+	return true;
 }
 
 DWORD WINAPI audio_thread_func(LPVOID) {
-	audioPlaybackTime = 2048.0;
+	audioPlaybackTime = 0.0;
 	WASAPIInterface::init_wasapi(fill_audio_buffer);
 	while (!audioThreadShouldShutdown) {
 		WASAPIInterface::do_audio();
@@ -68,6 +73,9 @@ void mouse_callback(Win32::MouseButton button, Win32::MouseValue state) {
 }
 
 void do_frame() {
+	if (UI::inDialog) {
+		return;
+	}
 	frameNumber++;
 	LARGE_INTEGER perfCounter;
 	if (!QueryPerformanceCounter(&perfCounter)) {
@@ -140,7 +148,7 @@ U32 run_dawdle() {
 		println_integer(err);
 		return EXIT_FAILURE;
 	}
-	
+
 	LOG_TIME("Total Init Time: ") {
 		LARGE_INTEGER perfCounter;
 		if (!QueryPerformanceCounter(&perfCounter)) {
@@ -162,21 +170,21 @@ U32 run_dawdle() {
 		}
 
 		UI::init_ui();
-		
+
 		UI::modificationLock.lock_write();
 		primaryGraph.init();
 		NodeUI::init(&primaryGraph);
 		UI::modificationLock.unlock_write();
 	}
-	
+
 	Win32::show_window();
 
-	char buf[1024];
+	/*char buf[1024];
 	U32 bufLen = 1024;
 	Win32::get_clipboard(buf, &bufLen);
 	println(StrA{ buf, bufLen });
 
-	Win32::set_clipboard("Quack"sa);
+	Win32::set_clipboard("Quack"sa);*/
 
 	while (!Win32::windowShouldClose) {
 		Win32::poll_events();
@@ -203,7 +211,7 @@ U32 run_dawdle() {
 			Win32::destroy();
 		}
 	}
-	
+
 
 	return EXIT_SUCCESS;
 }

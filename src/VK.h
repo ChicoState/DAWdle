@@ -155,7 +155,7 @@ struct DedicatedBuffer {
 		}
 	}
 	void invalidate_mapped(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE) {
-		if (mapping && !(VK::hostMemoryTypeIndex & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		if (mapping && !(VK::hostMemoryFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 			VkMappedMemoryRange memoryInvalidateRange{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 			memoryInvalidateRange.memory = memory;
 			memoryInvalidateRange.offset = offset;

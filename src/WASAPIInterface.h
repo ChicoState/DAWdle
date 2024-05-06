@@ -63,7 +63,7 @@ F32* audioBuffer;
 
 HANDLE wakeupTimer;
 
-void (*audioBufferFillCallback)(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmount);
+B32 (*audioBufferFillCallback)(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmount);
 
 void wasapi_failure(HRESULT failureResult) {
 	print("WASAPI function failed!\n");
@@ -191,7 +191,7 @@ void encode_audio_to_final_buffer(void* outputBuffer, F32* inputBuffer, U32 numF
 	}
 }
 
-void init_wasapi(void (*bufferFillCallback)(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmount)) {
+void init_wasapi(B32 (*bufferFillCallback)(F32* buffer, U32 numSamples, U32 numChannels, F32 timeAmount)) {
 	audioBufferFillCallback = bufferFillCallback;
 	load_audio_functions();
 
@@ -303,10 +303,10 @@ void do_audio() {
 	}
 
 	// Put data in buffer
-	audioBufferFillCallback(audioBuffer, framesToFill, outputWaveFormat.Format.nChannels, F32(framesToFill) / F32(AUDIO_FORMAT_SAMPLE_RATE_HZ[outputAudioFormat]));
+	B32 hasAudio = audioBufferFillCallback(audioBuffer, framesToFill, outputWaveFormat.Format.nChannels, F32(framesToFill) / F32(AUDIO_FORMAT_SAMPLE_RATE_HZ[outputAudioFormat]));
 	encode_audio_to_final_buffer(finalBuffer, audioBuffer, framesToFill, outputWaveFormat.Format.nChannels, outputAudioFormat);
 
-	audioRenderClient->ReleaseBuffer(framesToFill, 0);
+	audioRenderClient->ReleaseBuffer(framesToFill, hasAudio ? 0 : AUDCLNT_BUFFERFLAGS_SILENT);
 }
 
 }

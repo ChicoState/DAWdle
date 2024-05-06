@@ -2,7 +2,7 @@
 #include "Nodes.h"
 
 const U32 SERIALIZE_FILE_MAGIC = 0x44574144;
-const U32 CURRENT_SERIALIZE_VERSION = DRILL_LIB_MAKE_VERSION(1, 1, 0);
+const U32 CURRENT_SERIALIZE_VERSION = DRILL_LIB_MAKE_VERSION(1, 2, 0);
 
 namespace Nodes {
     NodeHeader* createNodeByType(NodeGraph& graph, NodeType type, V2F32 pos) {
@@ -34,6 +34,7 @@ namespace Serialization {
         std::vector<Waveform> waveforms;
         std::vector<FilterType> filterTypes;
         std::vector<std::pair<char*, U32>> inputStrs;
+        std::vector<NodePianoRoll*> pianoRolls;
 
         U32 currentSerializeIndex = 0;
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
@@ -56,6 +57,9 @@ namespace Serialization {
             if (node->type == NODE_FILTER) {
                 NodeFilter& filterNode = *reinterpret_cast<NodeFilter*>(node);
                 filterTypes.push_back(filterNode.filterType);
+            }
+            if (node->type == NODE_PIANO_ROLL) {
+                pianoRolls.push_back(reinterpret_cast<NodePianoRoll*>(node));
             }
         }
         for (NodeHeader* node = graph.nodesFirst; node; node = node->next) {
@@ -97,6 +101,7 @@ namespace Serialization {
         size_t mathNodeIndex = 0;
         size_t waveNodeIndex = 0;
         size_t filterNodeIndex = 0;
+        size_t pianoRollIndex = 0;
         for (size_t i = 0; i < nodeBasicData.size(); ++i) {
             const auto& [type, offset] = nodeBasicData[i];
             outFile.write(reinterpret_cast<const char*>(&type), sizeof(type));
@@ -128,6 +133,11 @@ namespace Serialization {
             if (type == NODE_FILTER) {
                 outFile.write(reinterpret_cast<const char*>(&filterTypes[filterNodeIndex]), sizeof(filterTypes[filterNodeIndex]));
                 filterNodeIndex++;
+            }
+            if (type == NODE_PIANO_ROLL) {
+                outFile.write(reinterpret_cast<const char*>(&pianoRolls[pianoRollIndex]->pianoRoll->noteCount), sizeof(pianoRolls[pianoRollIndex]->pianoRoll->noteCount));
+                outFile.write(reinterpret_cast<const char*>(pianoRolls[pianoRollIndex]->pianoRoll->notes), pianoRolls[pianoRollIndex]->pianoRoll->noteCount * sizeof(PianoRollNote));
+                pianoRollIndex++;
             }
         }
 
@@ -207,6 +217,18 @@ namespace Serialization {
                 FilterType type;
                 inFile.read(reinterpret_cast<char*>(&type), sizeof(type));
                 filterNode.setFilterType(type);
+            }
+            if (type == NODE_PIANO_ROLL) {
+                NodePianoRoll& pianoRoll = *reinterpret_cast<NodePianoRoll*>(node);
+                inFile.read(reinterpret_cast<char*>(&pianoRoll.pianoRoll->noteCount), sizeof(pianoRoll.pianoRoll->noteCount));
+                pianoRoll.pianoRoll->noteCapacity = next_power_of_two(max(64u, pianoRoll.pianoRoll->noteCount));
+                PianoRollNote* newNotes = reinterpret_cast<PianoRollNote*>(HeapReAlloc(GetProcessHeap(), 0, pianoRoll.pianoRoll->notes, pianoRoll.pianoRoll->noteCapacity * sizeof(PianoRollNote)));
+                if (newNotes) {
+                    inFile.read(reinterpret_cast<char*>(newNotes), pianoRoll.pianoRoll->noteCount * sizeof(PianoRollNote));
+                    pianoRoll.pianoRoll->notes = newNotes;
+                } else {
+                    abort("Out of memory");
+                }
             }
         }
 
