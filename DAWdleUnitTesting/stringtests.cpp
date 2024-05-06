@@ -273,4 +273,59 @@ namespace String {
 	TEST(Back, Back) {
 		EXPECT_EQ(str.back(), 'm');
 	}
+
+	TEST(StrALen, OneEmptyString) {
+		EXPECT_EQ(total_stralen(""sa), 0);
+	}
+
+	TEST(StrALen, OneNonemptyString) {
+		EXPECT_EQ(total_stralen(str), 12);
+	}
+
+	TEST(StrALen, MultipleEmptyStrings) {
+		EXPECT_EQ(total_stralen(""sa, ""sa, ""sa), 0);
+	}
+
+	TEST(StrALen, MultipleNonemptyStrings) {
+		EXPECT_EQ(total_stralen(str, "dawdle"sa, "Dot"sa, "com"sa), 24);
+	}
+
+	TEST(StrALen, MultipleNonemptyStringsOneEmpty) {
+		EXPECT_EQ(total_stralen("dawdle"sa, ""sa, "com"sa), 9);
+	}
+
+	TEST(CopyToBuffer, OneNonemptyString) {
+		char buf[1024];
+		copy_strings_to_buffer(buf, str);
+		EXPECT_EQ(memcmp(buf, str.str, str.length), 0);
+	}
+
+	TEST(CopyToBuffer, MultipleNonemptyStrings) {
+		char buf[1024];
+		StrA expected = "dawdleDotcomdawdleDotcom"sa;
+		copy_strings_to_buffer(buf, str, "dawdle"sa, "Dot"sa, "com"sa);
+		EXPECT_EQ(memcmp(buf, expected.str, expected.length), 0);
+	}
+
+	TEST(CopyToBuffer, MultipleNonemptyStringsOneEmpty) {
+		char buf[1024];
+		StrA expected = "dawdlecom"sa;
+		copy_strings_to_buffer(buf, "dawdle"sa, ""sa, "com"sa);
+		EXPECT_EQ(memcmp(buf, expected.str, expected.length), 0);
+	}
+
+	TEST(StrACat, EmptyStrings) {
+		drill_lib_init();
+		EXPECT_EQ(stracat(globalArena, ""sa, ""sa), ""sa);
+	}
+
+	TEST(StrACat, NonemptyStrings) {
+		drill_lib_init();
+		EXPECT_EQ(stracat(globalArena, "dawdle"sa, "Dot"sa, "com"sa), str);
+	}
+
+	TEST(StrACat, NonemptyStringsWithOneEmpty) {
+		drill_lib_init();
+		EXPECT_EQ(stracat(globalArena, "dawdle"sa, ""sa, "com"sa), "dawdlecom"sa);
+	}
 }
