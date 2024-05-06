@@ -217,16 +217,17 @@ BoxHandle alloc_box() {
 	if (!boxFreeList) {
 		const U32 amountToAlloc = 256;
 		boxFreeList = globalArena.alloc<Box>(amountToAlloc);
+		print("Allocating more boxes\n");
 		for (U32 i = 0; i < amountToAlloc; i++) {
 			boxFreeList[i].next = &boxFreeList[i + 1];
 		}
 		boxFreeList[amountToAlloc - 1].next = nullptr;
 	}
 	Box* box = boxFreeList;
+	boxFreeList = box->next;
 	*box = Box{};
 	make_default_settings(box);
 	box->generation = currentGeneration++;
-	boxFreeList = box->next;
 	return BoxHandle{ box, box->generation };
 }
 void free_box(BoxHandle boxHandle) {
@@ -781,6 +782,9 @@ B32 keyboard_input_for_box_recurse(B32* anyContained, Box* box, V2F32 pos, Win32
 	return result == ACTION_HANDLED;
 }
 void handle_keyboard_action(V2F32 mousePos, Win32::Key key, Win32::ButtonState state) {
+	if (UI::inDialog) {
+		return;
+	}
 	modificationLock.lock_write();
 	if (Box* activeTextInput = activeTextBox.get()) {
 		if (state == Win32::BUTTON_STATE_DOWN) {

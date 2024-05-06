@@ -34,7 +34,8 @@ void process_node(NodeHeader* node);
 	X(OSCILLOSCOPE, NodeOscilloscope)\
 	X(SAMPLER, NodeSampler)\
 	X(FILTER, NodeFilter)\
-	X(PIANO_ROLL, NodePianoRoll)
+	X(PIANO_ROLL, NodePianoRoll)\
+	X(LIST_COLLAPSE, NodeListCollapse)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -83,6 +84,8 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 	}
 
 	U32 bufferLength = U32_MAX;
+	U32 listEndsMinBufferLength = U32_MAX;
+	U32 maxBufferLength = 0;
 	U32 listEndsLength = U32_MAX;
 	U32* listEnds = nullptr;
 	B32 hasDifferentListEnds = false;
@@ -94,8 +97,10 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 			bufferLength = min(bufferLength, input.bufferLength);
 			allScalar = false;
 		}
-		listEndsLength = min(listEndsLength, input.listEndsLength);
+		maxBufferLength = max(maxBufferLength, input.bufferLength);
+		listEndsLength = min(listEndsLength, input.listEnds ? input.listEndsLength : input.bufferLength);
 		if (input.listEndsLength) {
+			listEndsMinBufferLength = min(listEndsMinBufferLength, input.bufferLength);
 			if (listEnds != nullptr && listEnds != input.listEnds) {
 				hasDifferentListEnds = true;
 			}
@@ -104,6 +109,9 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 	}
 	if (allScalar) {
 		bufferLength = 1;
+	}
+	if (listEndsMinBufferLength != U32_MAX) {
+		bufferLength = max(bufferLength, listEndsMinBufferLength);
 	}
 	listEndsLength = min(listEndsLength, bufferLength);
 
@@ -123,6 +131,7 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 				bufferLength += maxElementSize;
 				listEnds[i] = bufferLength;
 			}
+			maxBufferLength = bufferLength;
 		}
 		
 		for (U32 i = 0; i < inputCount; i++) {
@@ -136,7 +145,7 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 			input.listEnds = listEnds;
 			input.bufferLength = bufferLength;
 			if (oldListEnds && hasDifferentListEnds) {
-				F64* newData = audioArena.alloc_aligned_with_slack<F64>(bufferLength, alignof(__m256), 2 * sizeof(__m256));
+				F64* newData = audioArena.alloc_aligned_with_slack<F64>(maxBufferLength, alignof(__m256), 2 * sizeof(__m256));
 				input.buffer = newData;
 				U32 newOffset = 0;
 				U32 oldOffset = 0;
@@ -150,7 +159,7 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 					oldOffset = oldListEnds[j];
 				}
 			} else if (!oldListEnds) {
-				F64* newData = audioArena.alloc_aligned_with_slack<F64>(bufferLength, alignof(__m256), 2 * sizeof(__m256));
+				F64* newData = audioArena.alloc_aligned_with_slack<F64>(maxBufferLength, alignof(__m256), 2 * sizeof(__m256));
 				input.buffer = newData;
 				U32 newOffset = 0;
 				for (U32 j = 0; j < listEndsLength; j++) {
@@ -206,14 +215,19 @@ struct NodeWidgetHandle {
 struct NodeWidgetOutput {
 	NodeWidgetHeader header;
 	NodeIOValue value;
+	StrA displayStr;
 
 	UI::BoxHandle uiBoxConnector;
 
 	V2F32 connectionRenderPos;
 
-	void init() {
+	void init(StrA display) {
 		header.init(NODE_WIDGET_OUTPUT);
 		value = NodeIOValue{};
+		displayStr = display;
+	}
+	void init() {
+		init("Output"sa);
 	}
 
 	void add_to_ui();
@@ -299,42 +313,6 @@ struct NodeWidgetInput {
 		program.destroy();
 	}
 };
-void NodeWidgetOutput::add_to_ui() {
-	using namespace UI;
-	UI_RBOX() {
-		workingBox.unsafeBox->backgroundColor = V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }.to_rgba8();
-		workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
-		spacer();
-		str_a("Output"sa);
-		spacer();
-		UI_SIZE((V2F32{ 8.0F, 8.0F })) {
-			Box* connector = generic_box().unsafeBox;
-			connector->flags = BOX_FLAG_FLOATING_X | BOX_FLAG_CUSTOM_DRAW | BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS;
-			connector->contentOffset.x = 120.0F - 4.0F;
-			connector->backgroundTexture = &Textures::nodeConnect;
-			connector->userTypeId = UI_TYPE_ID_NODE_WIDGET_OUTPUT;
-			connector->userData[0] = UPtr(this);
-			connector->actionCallback = [](Box* box, UserCommunication& comm) {
-				NodeWidgetOutput& outputWidget = *reinterpret_cast<NodeWidgetOutput*>(box->userData[0]);
-				ActionResult result = ACTION_PASS;
-				if (box == UI::activeBox.get() && comm.tessellator) {
-					F32 handleScale = distance(comm.renderArea.midpoint(), comm.mousePos) * 0.5F;
-					comm.tessellator->ui_bezier_curve(comm.renderArea.midpoint(), comm.renderArea.midpoint() + V2F32{ handleScale, 0.0F }, comm.mousePos - V2F32{ handleScale, 0.0F }, comm.mousePos, comm.renderZ + 0.05F, 32, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
-					result = ACTION_HANDLED;
-				}
-				if (comm.tessellator) {
-					outputWidget.connectionRenderPos = comm.renderArea.midpoint();
-				}
-				if (comm.draggedTo && comm.draggedTo->userTypeId == UI_TYPE_ID_NODE_WIDGET_INPUT) {
-					reinterpret_cast<NodeWidgetInput*>(comm.draggedTo->userData[0])->connect(&outputWidget);
-					result = ACTION_HANDLED;
-				}
-				return result;
-			};
-			uiBoxConnector = BoxHandle{ connector, connector->generation };
-		}
-	}
-}
 struct NodeWidgetOscilloscope {
 	NodeWidgetHeader header;
 	F32* waveformBuffer;
@@ -615,12 +593,14 @@ F32 NOTE_FREQUENCIES[]{
 };
 #undef X
 
+#pragma pack(push, 1)
 struct PianoRollNote {
 	F32 startTime;
 	F32 endTime;
 	Note assignedNote;
 	F32 frequency;
 };
+#pragma pack(pop)
 struct NodeWidgetPianoRoll {
 	NodeWidgetHeader header;
 	PianoRollNote* notes;
@@ -631,20 +611,11 @@ struct NodeWidgetPianoRoll {
 		if (noteCount == 0 || time < 0.0F) {
 			return U32_MAX;
 		}
-		U32 lowerBound = 0;
-		U32 upperBound = noteCount - 1;
-		while (lowerBound != upperBound) {
-			U32 mid = lowerBound + upperBound >> 1;
-			PianoRollNote note = notes[mid];
-			if (note.startTime > time) {
-				upperBound = mid - 1;
-			} else if (note.endTime > time) {
-				upperBound = mid;
-			} else {
-				lowerBound = mid + 1;
-			}
+		U32 idx = 0;
+		while (idx < noteCount && notes[idx].startTime > time) {
+			idx++;
 		}
-		return lowerBound;
+		return idx;
 	}
 	void add_note(PianoRollNote note) {
 		if (noteCount == noteCapacity) {
@@ -670,7 +641,7 @@ struct NodeWidgetPianoRoll {
 	void generate_output(F64** resultTimeOut, F64** resultFreqOut, U32** listEnds, F64 timeOffset, F64* timeBuffer, U32 inputLength) {
 		U32* endsPtr = audioArena.alloc_aligned_with_slack<U32>(inputLength, alignof(__m256), 2 * sizeof(__m256));
 		audioArena.stackPtr = ALIGN_HIGH(audioArena.stackPtr, alignof(__m256));
-		F64* result = reinterpret_cast<F64*>(audioArena.stackPtr);
+		F64* result = reinterpret_cast<F64*>(audioArena.stackBase + audioArena.stackPtr);
 		U32 resultCapacity = inputLength * 4;
 		*listEnds = endsPtr;
 		U32 valueCount = 0;
@@ -678,9 +649,12 @@ struct NodeWidgetPianoRoll {
 			F64 inputTime = timeBuffer[i];
 			U32 noteIndex = find_note_start_for_time(timeBuffer[i] - timeOffset);
 			while (noteIndex < noteCount) {
-				PianoRollNote note = notes[noteIndex];
+				PianoRollNote note = notes[noteIndex++];
 				if (note.startTime > inputTime) {
 					break;
+				}
+				if (note.endTime < inputTime) {
+					continue;
 				}
 				if (valueCount == resultCapacity) {
 					memcpy(result + resultCapacity * 2, result + resultCapacity, resultCapacity * sizeof(U64));
@@ -694,7 +668,7 @@ struct NodeWidgetPianoRoll {
 		}
 		*resultTimeOut = result;
 		*resultFreqOut = result + resultCapacity;
-		audioArena.stackPtr += valueCount * sizeof(F64) + 2 * sizeof(__m256);
+		audioArena.stackPtr += resultCapacity * sizeof(F64) * 2 + 2 * sizeof(__m256);
 	}
 
 	void init() {
@@ -702,9 +676,6 @@ struct NodeWidgetPianoRoll {
 		noteCapacity = 64;
 		notes = reinterpret_cast<PianoRollNote*>(HeapAlloc(GetProcessHeap(), 0, noteCapacity * sizeof(PianoRollNote)));
 		noteCount = 0;
-
-		add_note(PianoRollNote{ 0.0F, 1.0F, NOTE_C5, NOTE_FREQUENCIES[NOTE_C5] });
-		add_note(PianoRollNote{ 0.5F, 1.25F, NOTE_F5, NOTE_FREQUENCIES[NOTE_F5] });
 	}
 	void add_to_ui() {
 		using namespace UI;
@@ -796,8 +767,8 @@ struct NodeWidgetPianoRoll {
 					}
 
 					if (comm.leftClickStart) {
-						F32 startTime = 0.25F * floorf32(mouseRelative.x * 0.1F + 0.5F);
-						Note assignedNote = Note(U32(floorf32((1200.0F - mouseRelative.y) * 0.1F + 0.5F)));
+						F32 startTime = 0.25F * floorf32(mouseRelative.x * 0.1F);
+						Note assignedNote = Note(U32(floorf32((1200.0F - mouseRelative.y) * 0.1F)));
 						pianoRoll.add_note(PianoRollNote{ startTime, startTime + 1.0F, assignedNote, NOTE_FREQUENCIES[assignedNote] });
 						return ACTION_HANDLED;
 					}
@@ -1690,15 +1661,70 @@ struct NodeSampler {
 };
 struct NodePianoRoll {
 	NodeHeader header;
+	NodeWidgetPianoRoll* pianoRoll;
 
 	void init() {
 		header.init(NODE_PIANO_ROLL, "Piano Roll"sa);
 		header.add_widget()->pianoRoll.init();
+		pianoRoll = reinterpret_cast<NodeWidgetPianoRoll*>(header.get_nth_of_type(NODE_WIDGET_PIANO_ROLL, 0));
+		header.add_widget()->output.init("Note time"sa);
+		header.add_widget()->output.init("Note frequency"sa);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& timeInput = header.get_input(0)->value;
+		NodeIOValue& noteTimeOutput = header.get_output(0)->value;
+		NodeIOValue& noteFreqOutput = header.get_output(1)->value;
+		F64* timeOutput;
+		F64* freqOutput;
+		U32* listEnds;
+		pianoRoll->generate_output(&timeOutput, &freqOutput, &listEnds, 0.0, timeInput.buffer, timeInput.bufferLength);
+		
+		noteTimeOutput.buffer = timeOutput;
+		noteTimeOutput.listEnds = listEnds;
+		noteTimeOutput.bufferLength = listEnds[timeInput.bufferLength - 1];
+		noteTimeOutput.listEndsLength = timeInput.bufferLength;
+		noteTimeOutput.bufferMask = U32_MAX;
+
+		noteFreqOutput.buffer = freqOutput;
+		noteFreqOutput.listEnds = listEnds;
+		noteFreqOutput.bufferLength = listEnds[timeInput.bufferLength - 1];
+		noteFreqOutput.listEndsLength = timeInput.bufferLength;
+		noteFreqOutput.bufferMask = U32_MAX;
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+struct NodeListCollapse {
+	NodeHeader header;
+
+	void init() {
+		header.init(NODE_LIST_COLLAPSE, "List Collapse"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 	}
 	void process() {
-
+		NodeIOValue& inputVal = header.get_input(0)->value;
+		NodeIOValue& outputVal = header.get_output(0)->value;
+		if (outputVal.listEnds) {
+			outputVal.buffer = audioArena.alloc_aligned_with_slack<F64>(inputVal.listEndsLength, alignof(__m256), 2 * sizeof(__m256));
+			outputVal.bufferLength = inputVal.listEndsLength;
+			outputVal.listEnds = nullptr;
+			outputVal.listEndsLength = 0;
+			outputVal.bufferMask = U32_MAX;
+			U32 prevEnd = 0;
+			for (U32 i = 0; i < outputVal.bufferLength; i++) {
+				F64 accumulator = 0.0;
+				for (U32 j = prevEnd; j < inputVal.listEnds[i]; j++) {
+					accumulator += inputVal.buffer[j];
+				}
+				outputVal.buffer[i] = accumulator;
+				prevEnd = inputVal.listEnds[i];
+			}
+		} else {
+			outputVal = inputVal;
+		}
 	}
 	void add_to_ui() {
 		header.add_to_ui();
@@ -1986,6 +2012,44 @@ void NodeTimeIn::process() {
 		output.value.bufferMask = U32_MAX;
 	} else {
 		output.value.set_scalar(0.0);
+	}
+}
+
+void NodeWidgetOutput::add_to_ui() {
+	using namespace UI;
+	UI_RBOX() {
+		workingBox.unsafeBox->backgroundColor = V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }.to_rgba8();
+		workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
+		spacer();
+		str_a(displayStr);
+		spacer();
+		UI_SIZE((V2F32{ 8.0F, 8.0F })) {
+			Box* connector = generic_box().unsafeBox;
+			connector->flags = BOX_FLAG_FLOATING_X | BOX_FLAG_CUSTOM_DRAW | BOX_FLAG_CENTER_ON_ORTHOGONAL_AXIS;
+			//connector->contentOffset.x = 120.0F - 4.0F;
+			connector->contentOffset.x = header.parent->uiBox.unsafeBox->minSize.x - 4.0F;
+			connector->backgroundTexture = &Textures::nodeConnect;
+			connector->userTypeId = UI_TYPE_ID_NODE_WIDGET_OUTPUT;
+			connector->userData[0] = UPtr(this);
+			connector->actionCallback = [](Box* box, UserCommunication& comm) {
+				NodeWidgetOutput& outputWidget = *reinterpret_cast<NodeWidgetOutput*>(box->userData[0]);
+				ActionResult result = ACTION_PASS;
+				if (box == UI::activeBox.get() && comm.tessellator) {
+					F32 handleScale = distance(comm.renderArea.midpoint(), comm.mousePos) * 0.5F;
+					comm.tessellator->ui_bezier_curve(comm.renderArea.midpoint(), comm.renderArea.midpoint() + V2F32{ handleScale, 0.0F }, comm.mousePos - V2F32{ handleScale, 0.0F }, comm.mousePos, comm.renderZ + 0.05F, 32, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+					result = ACTION_HANDLED;
+				}
+				if (comm.tessellator) {
+					outputWidget.connectionRenderPos = comm.renderArea.midpoint();
+				}
+				if (comm.draggedTo && comm.draggedTo->userTypeId == UI_TYPE_ID_NODE_WIDGET_INPUT) {
+					reinterpret_cast<NodeWidgetInput*>(comm.draggedTo->userData[0])->connect(&outputWidget);
+					result = ACTION_HANDLED;
+				}
+				return result;
+			};
+			uiBoxConnector = BoxHandle{ connector, connector->generation };
+		}
 	}
 }
 

@@ -4,6 +4,11 @@
 #include "UI.h"
 #include "Serialization.h"
 
+namespace DAWdle {
+extern B32 isPaused;
+extern F64 audioPlaybackTime;
+}
+
 namespace NodeUI {
 
 struct Panel;
@@ -73,6 +78,17 @@ struct Panel {
 					inDialog = false;
 				}
 			}).unsafeBox->userData[1] = UPtr(this);
+			spacer(500);
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+			text_button("Play/Pause"sa, [](Box* box) {
+				DAWdle::isPaused = !DAWdle::isPaused;
+			});
+			spacer(500);
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+			text_button("Stop"sa, [](Box* box) {
+				DAWdle::isPaused = true;
+				DAWdle::audioPlaybackTime = 0.0;
+			});
 			spacer();
 			UI_BACKGROUND_COLOR((V4F32{ 0.02F, 0.02F, 0.02F, 1.0F }))
 			button(Textures::uiX, [](Box* box) { reinterpret_cast<Panel*>(box->userData[1])->destroy(); }).unsafeBox->userData[1] = reinterpret_cast<UPtr>(this);
@@ -139,6 +155,9 @@ struct Panel {
 			if (comm.keyPressed == Win32::KEY_F) {
 				panel.nodeGraph->create_node<Nodes::NodeFilter>(mouseRelative);
 			}
+			if (comm.keyPressed == Win32::KEY_L) {
+				panel.nodeGraph->create_node<Nodes::NodeListCollapse>(mouseRelative);
+			}
 
 			if (comm.rightClickStart) {
 				UI_ADD_CONTEXT_MENU(BoxHandle{}, comm.mousePos) {
@@ -167,6 +186,9 @@ struct Panel {
 						});
 					text_button("Piano Roll"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodePianoRoll>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("List Collapse"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeListCollapse>(bitcast<V2F32>(box->parent->userData[1]));
 					});
 					BoxHandle test = generic_box();
 					test.unsafeBox->flags |= BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION | BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
