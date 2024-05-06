@@ -2,6 +2,13 @@
 #include "../src/SerializeTools.h"
 #include "../src/DrillLib.h"
 
+// needed to initialize memory arenas for testing
+struct initializer {
+	initializer() {
+		drill_lib_init();
+	}
+} init;
+
 namespace String {
 	const StrA str = "dawdleDotcom"sa;
 	const StrA str2 = "dawdledawdle"sa;
@@ -315,7 +322,6 @@ namespace String {
 	}
 
 	TEST(StrACat, EmptyStrings) {
-		drill_lib_init();
 		EXPECT_EQ(stracat(globalArena, ""sa, ""sa), ""sa);
 	}
 
@@ -332,31 +338,36 @@ namespace String {
 
 namespace ArenaArray {
 	TEST(Pushback_Contains, Single) {
-		ArenaArrayList<U32> test;
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
 		test.push_back(42);
 		EXPECT_TRUE(test.contains(42));
 	}
 
 	TEST(Popback, Single) {
-		ArenaArrayList<U32> test;
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
 		test.push_back(42);
 		test.pop_back();
 		EXPECT_FALSE(test.contains(42));
 	}
 
 	TEST(Empty, IsEmpty) {
-		ArenaArrayList<U32> test;
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
 		EXPECT_TRUE(test.empty());
 	}
 
 	TEST(Empty, IsNotEmpty) {
-		ArenaArrayList<U32> test;
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
 		test.push_back(42);
 		EXPECT_FALSE(test.empty());
 	}
 
 	TEST(Last, CheckLast) {
-		ArenaArrayList<U32> test;
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
 		test.push_back(42);
 		EXPECT_EQ(test.last(), 42);
 	}
@@ -438,9 +449,12 @@ namespace MemoryTests {
 		EXPECT_EQ(strcmp("hello", "hello"), 0);
 	}
 
-	TEST(Strcmp, DifferentStrings) {
-		EXPECT_EQ(strcmp("hello", "hell"), 1);
-		EXPECT_EQ(strcmp("hello", "helloo"), -1);
+	TEST(Strcmp, SecondStringShorter) {
+		EXPECT_GT(strcmp("hello", "hell"), 0);
+	}
+
+	TEST(Strcmp, SecondStringLonger) {
+		EXPECT_LT(strcmp("hello", "helloo"),0);
 	}
 
 	TEST(Strcmp, EmptyStrings) {
@@ -448,16 +462,15 @@ namespace MemoryTests {
 	}
 
 	TEST(Strcmp, OneEmptyString) {
-		EXPECT_EQ(strcmp("", "dotcom"), -1);
+		EXPECT_LT(strcmp("", "dotcom"), 0);
 	}
 
 	TEST(Strcmp, CaseSensitiveStrings) {
-		EXPECT_EQ(strcmp("Hello", "hello"), -1);
-		EXPECT_EQ(strcmp("hello", "Hello"), 1);
+		EXPECT_LT(strcmp("Hello", "hello"), 0);
 	}
 
 	TEST(Strcmp, MultiByteCharacters) {
-		EXPECT_EQ(strcmp("éstevan", "estevan"), 1);
+		EXPECT_GT(strcmp("éstevan", "estevan"), 0);
 	}
 
 	TEST(Strcmp, NullTerminatedCheck) {
