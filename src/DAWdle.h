@@ -171,12 +171,12 @@ U32 run_dawdle() {
 
 	Win32::show_window();
 
-	char buf[1024];
+	/*char buf[1024];
 	U32 bufLen = 1024;
 	Win32::get_clipboard(buf, &bufLen);
 	println(StrA{ buf, bufLen });
 
-	Win32::set_clipboard("Quack"sa);
+	Win32::set_clipboard("Quack"sa);*/
 
 	while (!Win32::windowShouldClose) {
 		Win32::poll_events();

@@ -72,7 +72,6 @@ struct Panel {
 				panel.split(AXIS2_Y);
 				result = UI::ACTION_HANDLED;
 			}
-			// Temporary, I don't have the necessary UI system to make a selection menu yet
 			if (comm.keyPressed) {
 				result = UI::ACTION_HANDLED;
 			}
@@ -93,6 +92,9 @@ struct Panel {
 			}
 			if (comm.keyPressed == Win32::KEY_A) {
 				panel.nodeGraph->create_node<Nodes::NodeSampler>(mouseRelative);
+			}
+			if (comm.keyPressed == Win32::KEY_P) {
+				panel.nodeGraph->create_node<Nodes::NodePianoRoll>(mouseRelative);
 			}
 
 			if (comm.rightClickStart) {
@@ -116,6 +118,9 @@ struct Panel {
 					});
 					text_button("Sampler"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSampler>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("Piano Roll"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodePianoRoll>(bitcast<V2F32>(box->parent->userData[1]));
 					});
 					BoxHandle test = generic_box();
 					test.unsafeBox->flags |= BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION | BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;

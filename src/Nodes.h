@@ -23,7 +23,8 @@ void process_node(NodeHeader* node);
 	X(OUTPUT, NodeWidgetOutput)\
 	X(OSCILLOSCOPE, NodeWidgetOscilloscope)\
 	X(SAMPLER_BUTTON, NodeWidgetSamplerButton)\
-	X(CUSTOM_UI_ELEMENT, NodeWidgetCustomUIElement)
+	X(CUSTOM_UI_ELEMENT, NodeWidgetCustomUIElement)\
+	X(PIANO_ROLL, NodeWidgetPianoRoll)
 
 #define NODES \
 	X(TIME_IN, NodeTimeIn)\
@@ -31,7 +32,8 @@ void process_node(NodeHeader* node);
 	X(SINE, NodeSine)\
 	X(MATH, NodeMathOp)\
 	X(OSCILLOSCOPE, NodeOscilloscope)\
-	X(SAMPLER, NodeSampler)
+	X(SAMPLER, NodeSampler)\
+	X(PIANO_ROLL, NodePianoRoll)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -347,9 +349,10 @@ struct NodeWidgetOscilloscope {
 
 	void add_to_ui() {
 		using namespace UI;
+		workingBox.unsafeBox->minSize.x = 200.0F;
 		UI_RBOX() {
 			workingBox.unsafeBox->backgroundColor = V4F32{ 0.1F, 0.1F, 0.1F, 0.9F }.to_rgba8();
-			workingBox.unsafeBox->flags &= ~BOX_FLAG_INVISIBLE;
+			workingBox.unsafeBox->flags |= BOX_FLAG_CLIP_CHILDREN;
 			BoxHandle contentBox = generic_box();
 			contentBox.unsafeBox->backgroundColor = V4F32{ 0.0F, 0.0F, 0.0F, 1.0F }.to_rgba8();
 			contentBox.unsafeBox->flags |= BOX_FLAG_CUSTOM_DRAW;
@@ -466,6 +469,357 @@ struct NodeWidgetCustomUIElement {
 	}
 	void destroy() {};
 };
+#define NOTES X(C0,  "C0"sa,  16.35)\
+	X(C0S, "C0#"sa, 17.32)\
+	X(D0,  "D0"sa,  18.35)\
+	X(D0S, "D0#"sa, 19.45)\
+	X(E0,  "E0"sa,  20.60)\
+	X(F0,  "F0"sa,  21.83)\
+	X(F0S, "F0#"sa, 23.12)\
+	X(G0,  "G0"sa,  24.50)\
+	X(G0S, "G0#"sa, 25.96)\
+	X(A0,  "A0"sa,  27.50)\
+	X(A0S, "A0#"sa, 29.14)\
+	X(B0,  "B0"sa,  30.87)\
+	X(C1,  "C1"sa,  32.70)\
+	X(C1S, "C1#"sa, 34.65)\
+	X(D1,  "D1"sa,  36.71)\
+	X(D1S, "D1#"sa, 38.89)\
+	X(E1,  "E1"sa,  41.20)\
+	X(F1,  "F1"sa,  43.65)\
+	X(F1S, "F1#"sa, 46.25)\
+	X(G1,  "G1"sa,  49.00)\
+	X(G1S, "G1#"sa, 51.91)\
+	X(A1,  "A1"sa,  55.00)\
+	X(A1S, "A1#"sa, 58.27)\
+	X(B1,  "B1"sa,  61.74)\
+	X(C2,  "C2"sa,  65.41)\
+	X(C2S, "C2#"sa, 69.30)\
+	X(D2,  "D2"sa,  73.42)\
+	X(D2S, "D2#"sa, 77.78)\
+	X(E2,  "E2"sa,  82.41)\
+	X(F2,  "F2"sa,  87.31)\
+	X(F2S, "F2#"sa, 92.50)\
+	X(G2,  "G2"sa,  98.00)\
+	X(G2S, "G2#"sa, 103.83)\
+	X(A2,  "A2"sa,  110.00)\
+	X(A2S, "A2#"sa, 116.54)\
+	X(B2,  "B2"sa,  123.47)\
+	X(C3,  "C3"sa,  130.81)\
+	X(C3S, "C3#"sa, 138.59)\
+	X(D3,  "D3"sa,  146.83)\
+	X(D3S, "D3#"sa, 155.56)\
+	X(E3,  "E3"sa,  164.81)\
+	X(F3,  "F3"sa,  174.61)\
+	X(F3S, "F3#"sa, 185.00)\
+	X(G3,  "G3"sa,  196.00)\
+	X(G3S, "G3#"sa, 207.65)\
+	X(A3,  "A3"sa,  220.00)\
+	X(A3S, "A3#"sa, 233.08)\
+	X(B3,  "B3"sa,  246.94)\
+	X(C4,  "C4"sa,  261.63)\
+	X(C4S, "C4#"sa, 277.18)\
+	X(D4,  "D4"sa,  293.66)\
+	X(D4S, "D4#"sa, 311.13)\
+	X(E4,  "E4"sa,  329.63)\
+	X(F4,  "F4"sa,  349.23)\
+	X(F4S, "F4#"sa, 369.99)\
+	X(G4,  "G4"sa,  392.00)\
+	X(G4S, "G4#"sa, 415.30)\
+	X(A4,  "A4"sa,  440.00)\
+	X(A4S, "A4#"sa, 466.16)\
+	X(B4,  "B4"sa,  493.88)\
+	X(C5,  "C5"sa,  523.25)\
+	X(C5S, "C5#"sa, 554.37)\
+	X(D5,  "D5"sa,  587.33)\
+	X(D5S, "D5#"sa, 622.25)\
+	X(E5,  "E5"sa,  659.26)\
+	X(F5,  "F5"sa,  698.46)\
+	X(F5S, "F5#"sa, 739.99)\
+	X(G5,  "G5"sa,  783.99)\
+	X(G5S, "G5#"sa, 830.61)\
+	X(A5,  "A5"sa,  880.00)\
+	X(A5S, "A5#"sa, 932.33)\
+	X(B5,  "B5"sa,  987.77)\
+	X(C6,  "C6"sa,  1046.50)\
+	X(C6S, "C6#"sa, 1108.73)\
+	X(D6,  "D6"sa,  1174.66)\
+	X(D6S, "D6#"sa, 1244.51)\
+	X(E6,  "E6"sa,  1318.51)\
+	X(F6,  "F6"sa,  1396.91)\
+	X(F6S, "F6#"sa, 1479.98)\
+	X(G6,  "G6"sa,  1567.98)\
+	X(G6S, "G6#"sa, 1661.22)\
+	X(A6,  "A6"sa,  1760.00)\
+	X(A6S, "A6#"sa, 1864.66)\
+	X(B6,  "B6"sa,  1975.33)\
+	X(C7,  "C7"sa,  2093.00)\
+	X(C7S, "C7#"sa, 2217.46)\
+	X(D7,  "D7"sa,  2349.32)\
+	X(D7S, "D7#"sa, 2489.02)\
+	X(E7,  "E7"sa,  2637.02)\
+	X(F7,  "F7"sa,  2793.83)\
+	X(F7S, "F7#"sa, 2959.96)\
+	X(G7,  "G7"sa,  3135.96)\
+	X(G7S, "G7#"sa, 3322.44)\
+	X(A7,  "A7"sa,  3520.00)\
+	X(A7S, "A7#"sa, 3729.31)\
+	X(B7,  "B7"sa,  3951.07)\
+	X(C8,  "C8"sa,  4186.01)\
+	X(C8S, "C8#"sa, 4434.92)\
+	X(D8,  "D8"sa,  4698.64)\
+	X(D8S, "D8#"sa, 4978.03)\
+	X(E8,  "E8"sa,  5274.04)\
+	X(F8,  "F8"sa,  5587.65)\
+	X(F8S, "F8#"sa, 5919.91)\
+	X(G8,  "G8"sa,  6271.93)\
+	X(G8S, "G8#"sa, 6644.88)\
+	X(A8,  "A8"sa,  7040.00)\
+	X(A8S, "A8#"sa, 7458.62)\
+	X(B8,  "B8"sa,  7902.13)\
+	X(C9,  "C9"sa,  8372.02)\
+	X(C9S, "C9#"sa, 8869.84)\
+	X(D9,  "D9"sa,  9397.27)\
+	X(D9S, "D9#"sa, 9956.06)\
+	X(E9,  "E9"sa,  10548.08)\
+	X(F9,  "F9"sa,  11175.30)\
+	X(F9S, "F9#"sa, 11839.82)\
+	X(G9,  "G9"sa,  12543.86)\
+	X(G9S, "G9#"sa, 13289.75)\
+	X(A9,  "A9"sa,  14080.00)\
+	X(A9S, "A9#"sa, 14917.24)\
+	X(B9,  "B9"sa,  15804.26)\
+	X(C10,  "C10"sa,  16744.04)\
+	X(C10S, "C10#"sa, 17739.69)\
+	X(D10,  "D10"sa,  18794.55)\
+	X(D10S, "D10#"sa, 19912.13)
+
+#define X(name, displayName, freq) NOTE_##name,
+enum Note : U32 {
+	NOTES
+	NOTE_Count
+};
+#undef X
+#define X(name, displayName, freq) displayName,
+StrA NOTE_DISPLAY_NAMES[]{
+	NOTES
+	"Invalid Note"sa
+};
+#undef X
+#define X(name, displayName, freq) F32(freq),
+F32 NOTE_FREQUENCIES[]{
+	NOTES
+	0.0F
+};
+#undef X
+
+struct PianoRollNote {
+	F32 startTime;
+	F32 endTime;
+	Note assignedNote;
+	F32 frequency;
+};
+struct NodeWidgetPianoRoll {
+	NodeWidgetHeader header;
+	PianoRollNote* notes;
+	U32 noteCount;
+	U32 noteCapacity;
+
+	U32 find_note_start_for_time(F32 time) {
+		if (noteCount == 0 || time < 0.0F) {
+			return U32_MAX;
+		}
+		U32 lowerBound = 0;
+		U32 upperBound = noteCount - 1;
+		while (lowerBound != upperBound) {
+			U32 mid = lowerBound + upperBound >> 1;
+			PianoRollNote note = notes[mid];
+			if (note.startTime > time) {
+				upperBound = mid - 1;
+			} else if (note.endTime > time) {
+				upperBound = mid;
+			} else {
+				lowerBound = mid + 1;
+			}
+		}
+		return lowerBound;
+	}
+	void add_note(PianoRollNote note) {
+		if (noteCount == noteCapacity) {
+			PianoRollNote* newNotes = reinterpret_cast<PianoRollNote*>(HeapReAlloc(GetProcessHeap(), 0, notes, noteCapacity * 2 * sizeof(PianoRollNote)));
+			if (!newNotes) {
+				return;
+			}
+			notes = newNotes;
+			noteCapacity *= 2;
+		}
+		U32 index = 0;
+		while (index < noteCount && notes[index].startTime < note.startTime) {
+			index++;
+		}
+		memmove(notes + index + 1, notes + index, (noteCount - index) * sizeof(PianoRollNote));
+		notes[index] = note;
+		noteCount++;
+	}
+	void delete_note(U32 index) {
+		memmove(notes + index, notes + index + 1, (noteCount - index - 1) * sizeof(PianoRollNote));
+		noteCount--;
+	}
+	void generate_output(F64** resultTimeOut, F64** resultFreqOut, U32** listEnds, F64 timeOffset, F64* timeBuffer, U32 inputLength) {
+		U32* endsPtr = audioArena.alloc_aligned_with_slack<U32>(inputLength, alignof(__m256), 2 * sizeof(__m256));
+		audioArena.stackPtr = ALIGN_HIGH(audioArena.stackPtr, alignof(__m256));
+		F64* result = reinterpret_cast<F64*>(audioArena.stackPtr);
+		U32 resultCapacity = inputLength * 4;
+		*listEnds = endsPtr;
+		U32 valueCount = 0;
+		for (U32 i = 0; i < inputLength; i++) {
+			F64 inputTime = timeBuffer[i];
+			U32 noteIndex = find_note_start_for_time(timeBuffer[i] - timeOffset);
+			while (noteIndex < noteCount) {
+				PianoRollNote note = notes[noteIndex];
+				if (note.startTime > inputTime) {
+					break;
+				}
+				if (valueCount == resultCapacity) {
+					memcpy(result + resultCapacity * 2, result + resultCapacity, resultCapacity * sizeof(U64));
+					resultCapacity *= 2;
+				}
+				result[valueCount] = inputTime - note.startTime;
+				result[resultCapacity + valueCount] = note.frequency;
+				valueCount++;
+			}
+			*endsPtr++ = valueCount;
+		}
+		*resultTimeOut = result;
+		*resultFreqOut = result + resultCapacity;
+		audioArena.stackPtr += valueCount * sizeof(F64) + 2 * sizeof(__m256);
+	}
+
+	void init() {
+		header.init(NODE_WIDGET_PIANO_ROLL);
+		noteCapacity = 64;
+		notes = reinterpret_cast<PianoRollNote*>(HeapAlloc(GetProcessHeap(), 0, noteCapacity * sizeof(PianoRollNote)));
+		noteCount = 0;
+
+		add_note(PianoRollNote{ 0.0F, 1.0F, NOTE_C5, NOTE_FREQUENCIES[NOTE_C5] });
+		add_note(PianoRollNote{ 0.5F, 1.25F, NOTE_F5, NOTE_FREQUENCIES[NOTE_F5] });
+	}
+	void add_to_ui() {
+		using namespace UI;
+		workingBox.unsafeBox->minSize = V2F32{ 500.0F, 300.0F };
+		UI_BACKGROUND_COLOR((V4F32{ 0.07F, 0.07F, 0.07F, 1.0F }))
+		UI_RBOX() {
+			workingBox.unsafeBox->minSize = V2F32{ 500.0F, 200.0F };
+			BoxHandle rollUI = generic_box();
+			rollUI.unsafeBox->flags |= BOX_FLAG_DONT_LAYOUT_TO_FIT_CHILDREN | BOX_FLAG_CLIP_CHILDREN;
+			rollUI.unsafeBox->sizeParentPercent = V2F32{ 1.0F, 1.0F };
+			rollUI.unsafeBox->layoutDirection = LAYOUT_DIRECTION_RIGHT;
+			UI_WORKING_BOX(rollUI) {
+				BoxHandle piano = generic_box();
+				piano.unsafeBox->flags |= BOX_FLAG_CLIP_CHILDREN | BOX_FLAG_CUSTOM_DRAW;
+				piano.unsafeBox->backgroundColor = V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }.to_rgba8();
+				piano.unsafeBox->minSize = V2F32{ 60.0F, 1200.0F };
+				piano.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+					if (comm.tessellator) {
+						for (U32 i = 0; i < 10; i++) {
+							U32 baseOffset = (10 - i) * 120;
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F}, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 34.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 16.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 49.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 36.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 64.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 51.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 84.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 66.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 104.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 86.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 119.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 106.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+
+							F32 halfMaxX = (comm.renderArea.minX + comm.renderArea.maxX) * 0.5F;
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 20.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 10.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 40.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 30.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 70.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 60.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 90.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 80.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 110.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 100.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							
+							TextRenderer::draw_string_batched(*comm.tessellator, NOTE_DISPLAY_NAMES[i * 12], mix(comm.renderArea.minX, comm.renderArea.maxX, 0.75F), comm.renderArea.minY + (baseOffset - 12.0F) * comm.scale, comm.renderZ, 12.0F * comm.scale, V4F32{ 0.0F, 0.0F, 0.0F, 1.0F }, comm.clipBoxIndex << 16);
+						}
+						return ACTION_HANDLED;
+					}
+					return ACTION_PASS;
+				};
+				
+
+				BoxHandle roll = generic_box();
+				roll.unsafeBox->flags |= BOX_FLAG_CUSTOM_DRAW | BOX_FLAG_CLIP_CHILDREN;
+				roll.unsafeBox->backgroundColor = V4F32{ 0.02F, 0.02F, 0.02F, 1.0F }.to_rgba8();
+				roll.unsafeBox->minSize = V2F32{ 0.0F, 1200.0F };
+				roll.unsafeBox->sizeParentPercent.x = 1.0F;
+				roll.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+					NodeWidgetPianoRoll& pianoRoll = *reinterpret_cast<NodeWidgetPianoRoll*>(box->userData[0]);
+					if (comm.tessellator) {
+						for (U32 i = 1; i <= 120; i++) {
+							U32 baseOffset = i * 10;
+							F32 width = 0.5F;
+							V4F32 color = V4F32{ 0.2F, 0.2F, 0.2F, 1.0F };
+							if (i % 12 == 0) {
+								color = V4F32{ 0.5F, 0.5F, 0.5F, 1.0F };
+							}
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - width) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset + width) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, color, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+						}
+						U32 drawStart = 1 + U32(box->contentOffset.x) / 10;
+						for (U32 i = drawStart; i < drawStart + 120; i++) {
+							U32 baseOffset = -box->contentOffset.x + i * 10;
+							F32 width = 0.5F;
+							V4F32 color = V4F32{ 0.2F, 0.2F, 0.2F, 1.0F };
+							if (i % 4 == 0) {
+								color = V4F32{ 0.5F, 0.5F, 0.5F, 1.0F };
+							}
+							comm.tessellator->ui_rect2d(comm.renderArea.minX + (baseOffset - width) * comm.scale, comm.renderArea.minY, comm.renderArea.minX + (baseOffset + width) * comm.scale, comm.renderArea.maxY, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, color, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+						}
+						for (U32 i = 0; i < pianoRoll.noteCount; i++) {
+							PianoRollNote note = pianoRoll.notes[i];
+							comm.tessellator->ui_rect2d(comm.renderArea.minX + (note.startTime * 40.0F - box->contentOffset.x) * comm.scale, comm.renderArea.maxY - (F32(note.assignedNote) * 10.0F + 10.0F) * comm.scale, comm.renderArea.minX + (note.endTime * 40.0F - box->contentOffset.x) * comm.scale, comm.renderArea.maxY - F32(note.assignedNote) * 10.0F * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{0.8F, 0.8F, 0.8F, 1.0F}, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+						}
+						return ACTION_HANDLED;
+					}
+					V2F32 mouseRelative = (comm.mousePos - V2F32{ comm.renderArea.minX, comm.renderArea.minY }) / comm.scale + box->contentOffset;
+					if (comm.scrollInput) {
+						for (U32 i = 0; i < pianoRoll.noteCount; i++) {
+							PianoRollNote& note = pianoRoll.notes[i];
+							Rng2F32 noteBB{ note.startTime * 40.0F, 1200.0F - F32(note.assignedNote) * 10.0F - 10.0F, note.endTime * 40.0F, 1200.0F - F32(note.assignedNote) * 10.0F };
+							if (rng_contains_point(noteBB, mouseRelative)) {
+								note.endTime = max(note.startTime + 0.25F, note.endTime + F32(signumf32(comm.scrollInput)) * 0.25F);
+								return ACTION_HANDLED;
+							}
+						}
+						box->contentOffset.x = max(box->contentOffset.x - comm.scrollInput * comm.scale * 0.5F, 0.0F);
+						return ACTION_HANDLED;
+					}
+
+					if (comm.leftClickStart) {
+						F32 startTime = 0.25F * floorf32(mouseRelative.x * 0.1F + 0.5F);
+						Note assignedNote = Note(U32(floorf32((1200.0F - mouseRelative.y) * 0.1F + 0.5F)));
+						pianoRoll.add_note(PianoRollNote{ startTime, startTime + 1.0F, assignedNote, NOTE_FREQUENCIES[assignedNote] });
+						return ACTION_HANDLED;
+					}
+					if (comm.rightClickStart) {
+						for (U32 i = 0; i < pianoRoll.noteCount; i++) {
+							PianoRollNote& note = pianoRoll.notes[i];
+							Rng2F32 noteBB{ note.startTime * 40.0F, 1200.0F - F32(note.assignedNote) * 10.0F - 10.0F, note.endTime * 40.0F, 1200.0F - F32(note.assignedNote) * 10.0F };
+							if (rng_contains_point(noteBB, mouseRelative)) {
+								pianoRoll.delete_note(i);
+							}
+						}
+						return ACTION_HANDLED;
+					}
+					return ACTION_PASS;
+				};
+				roll.unsafeBox->userData[0] = UPtr(this);
+			}
+			scroll_bar(rollUI, 8.0F);
+		}
+	}
+	void destroy() {
+		HeapFree(GetProcessHeap(), 0, notes);
+	};
+};
 union NodeWidget {
 	NodeWidgetHeader header;
 	NodeWidgetInput input;
@@ -473,6 +827,7 @@ union NodeWidget {
 	NodeWidgetOscilloscope oscilloscope;
 	NodeWidgetSamplerButton file_dialog_button;
 	NodeWidgetCustomUIElement customUIElement;
+	NodeWidgetPianoRoll pianoRoll;
 };
 
 struct NodeGraph;
@@ -1026,6 +1381,22 @@ struct NodeSampler {
 	void add_to_ui() {
 		using namespace UI;
 		Box* box = header.add_to_ui();
+	}
+};
+struct NodePianoRoll {
+	NodeHeader header;
+
+	void init() {
+		header.init(NODE_PIANO_ROLL, "Piano Roll"sa);
+		header.add_widget()->pianoRoll.init();
+		header.add_widget()->output.init();
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+
+	}
+	void add_to_ui() {
+		header.add_to_ui();
 	}
 };
 union Node {

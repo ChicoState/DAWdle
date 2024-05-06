@@ -509,12 +509,12 @@ Rng2F32 compute_final_render_area_and_offset_for_children(V2F32* childrenOffset,
 	if (box->flags & BOX_FLAG_FLOATING_X) {
 		boxOffset.x = box->contentOffset.x;
 	} else {
-		childrenOffset->x = box->contentOffset.x;
+		childrenOffset->x = box->contentOffset.x * scale;
 	}
 	if (box->flags & BOX_FLAG_FLOATING_Y) {
 		boxOffset.y = box->contentOffset.y;
 	} else {
-		childrenOffset->y = box->contentOffset.y;
+		childrenOffset->y = box->contentOffset.y * scale;
 	}
 	V2F32 adjustedParentRelativeOffset = box->computedParentRelativeOffset + boxOffset;
 	box->computedOffset = parentComputedOffset + adjustedParentRelativeOffset * scale;
@@ -619,7 +619,7 @@ B32 mouse_input_for_box_recurse(B32* anyContained, Box* box, V2F32 pos, Win32::M
 	}
 	for (Box* child = box->childFirst; child; child = child->next) {
 		if (mouse_input_for_box_recurse(anyContained, child, pos, button, state, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
-			return false;
+			return true;
 		}
 	}
 	if (mouseOutside || box->actionCallback == nullptr) {
@@ -766,7 +766,7 @@ B32 keyboard_input_for_box_recurse(B32* anyContained, Box* box, V2F32 pos, Win32
 	}
 	for (Box* child = box->childFirst; child; child = child->next) {
 		if (keyboard_input_for_box_recurse(anyContained, child, pos, key, state, box->computedOffset, offset + childrenOffset, scale * box->contentScale)) {
-			return false;
+			return true;
 		}
 	}
 	if (mouseOutside || box->actionCallback == nullptr || state != Win32::BUTTON_STATE_DOWN) {
@@ -1041,6 +1041,46 @@ BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
 		
 	}
 	return result;
+}
+
+void scroll_bar(BoxHandle boxToScroll, F32 size) {
+	UI_SIZE((V2F32{ size, size }))
+	UI_DBOX() {
+		button(Textures::uiIncrementUp, nullptr);
+
+		BoxHandle spacerA = generic_box();
+		spacerA.unsafeBox->minSize.y = 0.0F;
+		spacerA.unsafeBox->sizeParentPercent.y = 0.0F;
+		spacerA.unsafeBox->flags |= BOX_FLAG_INVISIBLE | BOX_FLAG_SPACER;
+
+		BoxHandle scrollHandle = generic_box();
+		scrollHandle.unsafeBox->flags |= BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
+		scrollHandle.unsafeBox->backgroundColor = V4F32{ 0.2F, 0.2F, 0.2F, 1.0F }.to_rgba8();
+		scrollHandle.unsafeBox->minSize.y = size * 4.0F;
+		scrollHandle.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+			if (comm.drag.y) {
+				BoxHandle toScroll;
+				memcpy(&toScroll, box->userData, sizeof(BoxHandle));
+				if (Box* scrollBox = toScroll.get()) {
+					F32 maxScroll = max(scrollBox->childFirst->minSize.y - scrollBox->computedSize.y, 0.0F);
+					F32 newScroll = clamp01((box->prev->computedSize.y + comm.drag.y) / (box->prev->computedSize.y + box->next->computedSize.y));
+					scrollBox->contentOffset.y = -maxScroll * newScroll;
+					box->prev->sizeParentPercent.y = newScroll;
+					box->next->sizeParentPercent.y = 1.0F - newScroll;
+				}
+				return ACTION_HANDLED;
+			}
+			return ACTION_PASS;
+		};
+		memcpy(scrollHandle.unsafeBox->userData, &boxToScroll, sizeof(BoxHandle));
+
+		BoxHandle spacerB = generic_box();
+		spacerB.unsafeBox->minSize.y = 0.0F;
+		spacerB.unsafeBox->sizeParentPercent.y = 1.0F;
+		spacerB.unsafeBox->flags |= BOX_FLAG_INVISIBLE | BOX_FLAG_SPACER;
+
+		button(Textures::uiIncrementDown, nullptr);
+	}
 }
 
 BoxHandle context_menu_begin_helper() {
