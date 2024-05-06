@@ -371,6 +371,287 @@ namespace ArenaArray {
 		test.push_back(42);
 		EXPECT_EQ(test.last(), 42);
 	}
+
+	TEST(Reserve, CapacityIncrease) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.reserve(10);
+		EXPECT_EQ(test.capacity, 10);
+	}
+
+	TEST(Reserve, NoCapacityIncrease) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.reserve(10);
+		U32 oldCapacity = test.capacity;
+		test.reserve(5);
+		EXPECT_EQ(test.capacity, oldCapacity);
+	}
+
+	TEST(Resize, SizeDecrease) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(42);
+		test.resize(0);
+		EXPECT_EQ(test.size, 0);
+	}
+
+	TEST(Resize, SizeIncrease) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.resize(5);
+		EXPECT_EQ(test.capacity, 5);
+	}
+
+	TEST(Pushback, ValueInserted) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(42);
+		EXPECT_EQ(test.last(), 42);
+	}
+
+	TEST(Popback, ValueRemoved) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(42);
+		test.pop_back();
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(PushbackN, SizeAfterInsertion) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		EXPECT_EQ(test.size, 3);
+	}
+
+	TEST(PushbackN, FirstElementCorrect) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		EXPECT_EQ(test.data[0], 1);
+	}
+
+	TEST(PushbackN, SecondElementCorrect) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		EXPECT_EQ(test.data[1], 2);
+	}
+
+	TEST(PushbackN, ThirdElementCorrect) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		EXPECT_EQ(test.data[2], 3);
+	}
+
+	TEST(PopbackN, SizeCorrectAfterRemoval) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		test.pop_back_n(2);
+		EXPECT_EQ(test.size, 1);
+	}
+
+	TEST(PopbackN, LastElemAfterRemoval) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		test.pop_back_n(2);
+		EXPECT_EQ(test.last(), 1);
+	}
+
+	TEST(SubrangeContains, CheckSubrange) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3, 4, 5 };
+		test.push_back_n(values, 5);
+		EXPECT_TRUE(test.subrange_contains(1, 4, 3));
+	}
+
+	TEST(SubrangeContains, CheckSubrangeNotContained) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3, 4, 5 };
+		test.push_back_n(values, 5);
+		EXPECT_FALSE(test.subrange_contains(0, 2, 5));
+	}
+
+	TEST(Clear, ClearList) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		test.clear();
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Reset, ListEmptyAfterReset) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		test.reset();
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Reset, CapacityZeroAfterReset) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3 };
+		test.push_back_n(values, 3);
+		test.reset();
+		EXPECT_EQ(test.capacity, 0);
+	}
+
+	TEST(Pushback, SizeAfterPushingElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(1);
+		test.push_back(2);
+		test.push_back(3);
+		EXPECT_EQ(test.size, 3);
+	}
+
+	TEST(Pushback, LastElemAfterPushingElemss) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(1);
+		test.push_back(2);
+		test.push_back(3);
+		EXPECT_EQ(test.last(), 3);
+	}
+
+	TEST(Pushback, SizeAfterFillingCapacity) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 8; ++i) {
+			test.push_back(i);
+		}
+		EXPECT_EQ(test.size, 8);
+	}
+
+	TEST(Pushback, CapacityAfterFillingCapacity) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 8; ++i) {
+			test.push_back(i);
+		}
+		EXPECT_EQ(test.capacity, 8);
+	}
+
+	TEST(Pushback, SizeAfterExceedingInitialCap) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 16; ++i) {
+			test.push_back(i);
+		}
+		EXPECT_EQ(test.size, 16);
+	}
+
+	TEST(Pushback, CapacityEnoughAfterInitialCap) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 16; ++i) {
+			test.push_back(i);
+		}
+		EXPECT_GE(test.capacity, 16);
+	}
+
+	TEST(Popback, SizeAfterPopElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		test.pop_back();
+		test.pop_back();
+		EXPECT_EQ(test.size, 3);
+	}
+
+	TEST(Popback, LastElemAfterPoppingElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		test.pop_back();
+		test.pop_back();
+		EXPECT_EQ(test.last(), 2);
+	}
+
+	TEST(Popback, PopUntilEmpty) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		for (U32 i = 0; i < 5; ++i) {
+			test.pop_back();
+		}
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Clear, IsEmptyAfterClearElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		test.clear();
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Clear, CapAfterClearElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		test.clear();
+		EXPECT_EQ(test.capacity, 8);
+	}
+
+	TEST(Reset, EmptyAfterReset) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.reset();
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Reset, CapIsZeroAfterResetEmptyList) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.reset();
+		EXPECT_EQ(test.capacity, 0);
+	}
+
+	TEST(Reset, EmptyAfterResetWithElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		test.reset();
+		EXPECT_TRUE(test.empty());
+	}
+
+	TEST(Reset, CapZeroAfterResetWithElems) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		for (U32 i = 0; i < 5; ++i) {
+			test.push_back(i);
+		}
+		test.reset();
+		EXPECT_EQ(test.capacity, 0);
+	}
 }
 
 namespace MemoryTests {
