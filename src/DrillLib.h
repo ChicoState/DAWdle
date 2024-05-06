@@ -158,7 +158,8 @@ struct MemoryArena {
 		if (data != nullptr && reinterpret_cast<UPtr>(data + oldCount) + slack == reinterpret_cast<UPtr>(stackBase + stackPtr)) {
 			stackPtr += (newCount - oldCount) * sizeof(T);
 			result = data;
-		} else {
+		}
+		else {
 			if (newCount > oldCount) {
 				stackPtr = ALIGN_HIGH(stackPtr, alignof(T));
 				result = reinterpret_cast<T*>(stackBase + stackPtr);
@@ -266,7 +267,8 @@ struct ArenaArrayList {
 	FINLINE void resize(U32 newSize) {
 		if (newSize < size) {
 			size = newSize;
-		} else if (newSize > size) {
+		}
+		else if (newSize > size) {
 			reserve(newSize);
 			zero_memory(data + size, (newSize - size) * sizeof(T));
 		}
@@ -378,37 +380,38 @@ struct StrA {
 	const char* str;
 	U64 length;
 
-	FINLINE const char* c_str(MemoryArena& arena) {
+	FINLINE const char* c_str(MemoryArena& arena) const {
 		if (length && str[length - 1] == '\0') {
 			return str;
-		} else {
+		}
+		else {
 			char* result = arena.alloc<char>(length + 1);
 			memcpy(result, str, length);
 			result[length] = '\0';
 			return result;
 		}
 	}
-	FINLINE B32 operator==(const StrA& other) {
+	FINLINE B32 operator==(const StrA& other) const {
 		return length == other.length && memcmp(str, other.str, length) == 0;
 	}
-	FINLINE char operator[](I64 pos) {
+	FINLINE char operator[](I64 pos) const {
 		return str[pos < 0 ? length + pos : pos];
 	}
-	FINLINE B32 is_empty() {
+	FINLINE B32 is_empty() const {
 		return length == 0;
 	}
-	FINLINE I64 find(StrA other) {
+	FINLINE I64 find(StrA other) const {
 		if (other.length > length) {
 			return -1;
 		}
-		for (U64 i = 0; i < length - other.length; i++) {
+		for (U64 i = 0; i <= length - other.length; i++) {
 			if (memcmp(str + i, other.str, other.length) == 0) {
 				return I64(i);
 			}
 		}
 		return -1;
 	}
-	FINLINE I64 find(char c) {
+	FINLINE I64 find(char c) const {
 		for (U64 i = 0; i < length; i++) {
 			if (str[i] == c) {
 				return I64(i);
@@ -416,18 +419,18 @@ struct StrA {
 		}
 		return -1;
 	}
-	FINLINE I64 rfind(StrA other) {
+	FINLINE I64 rfind(StrA other) const {
 		if (other.length > length) {
 			return -1;
 		}
-		for (I64 i = I64(length - other.length - 1); i >= 0; i--) {
+		for (I64 i = I64(length - other.length); i >= 0; i--) {
 			if (memcmp(str + i, other.str, other.length) == 0) {
 				return i;
 			}
 		}
 		return -1;
 	}
-	FINLINE I64 rfind(char c) {
+	FINLINE I64 rfind(char c) const {
 		for (I64 i = I64(length - 1); i >= 0; i--) {
 			if (str[i] == c) {
 				return i;
@@ -435,13 +438,13 @@ struct StrA {
 		}
 		return -1;
 	}
-	FINLINE B32 starts_with(StrA other) {
+	FINLINE B32 starts_with(StrA other) const {
 		return other.length <= length && memcmp(str, other.str, other.length) == 0;
 	}
-	FINLINE B32 ends_with(StrA other) {
+	FINLINE B32 ends_with(StrA other) const {
 		return other.length <= length && memcmp(str + (length - other.length), other.str, other.length) == 0;
 	}
-	FINLINE StrA slice(I64 begin, I64 end) {
+	FINLINE StrA slice(I64 begin, I64 end) const {
 		if (begin < 0) {
 			begin = max(I64(length) + begin, 0LL);
 		}
@@ -455,29 +458,29 @@ struct StrA {
 		U64 last = min(U64(end), length);
 		return StrA{ str + first, U64(last - first) };
 	}
-	FINLINE StrA prefix(I64 amount) {
+	FINLINE StrA prefix(I64 amount) const {
 		return slice(0, amount);
 	}
-	FINLINE StrA suffix(I64 amount) {
-		return slice(-amount, I64_MAX);
+	FINLINE StrA suffix(I64 amount) const {
+		return slice(amount < 0 ? -amount : length - amount, I64_MAX);
 	}
-	FINLINE StrA skip(I64 amount) {
+	FINLINE StrA skip(I64 amount) const {
 		return slice(amount, I64_MAX);
 	}
-	FINLINE StrA substr(U64 begin, U64 newLength) {
+	FINLINE StrA substr(U64 begin, U64 newLength) const {
 		U64 start = min(begin, length);
 		return StrA{ str + start, min(newLength, length - start) };
 	}
-	const char* begin() {
+	const char* begin() const {
 		return str;
 	}
-	const char* end() {
+	const char* end() const {
 		return str + length;
 	}
-	char front() {
+	char front() const {
 		return str[0];
 	}
-	char back() {
+	char back() const {
 		return str[length - 1];
 	}
 };
@@ -565,7 +568,8 @@ struct ByteBuf {
 	FINLINE void skip(U32 amount) {
 		if (capacity - offset < amount) {
 			failed = true;
-		} else {
+		}
+		else {
 			offset += amount;
 		}
 	}
@@ -595,7 +599,8 @@ struct ByteBuf {
 		if (capacity - offset < sizeof(F32)) {
 			result = 0.0F;
 			failed = true;
-		} else {
+		}
+		else {
 			result = bitcast<F32>(LOAD_LE32(bytes + offset));
 			offset += sizeof(F32);
 		}
@@ -604,7 +609,8 @@ struct ByteBuf {
 	FINLINE void read_bytes(void* output, U32 size) {
 		if (capacity - offset < size) {
 			failed = true;
-		} else {
+		}
+		else {
 			memcpy(output, bytes + offset, size);
 			offset += size;
 		}
@@ -631,7 +637,8 @@ struct ByteBuf {
 		FINLINE ByteBuf& write_f32(F32 val) {
 		if (capacity - offset < sizeof(F32)) {
 			failed = true;
-		} else {
+		}
+		else {
 			STORE_LE32(bytes + offset, bitcast<U32>(val));
 			offset += sizeof(F32);
 		}
@@ -640,7 +647,8 @@ struct ByteBuf {
 	FINLINE ByteBuf& write_bytes(const void* src, U32 count) {
 		if (capacity - offset < count) {
 			failed = true;
-		} else {
+		}
+		else {
 			memcpy(bytes + offset, src, count);
 			offset += count;
 		}
@@ -652,7 +660,8 @@ struct ByteBuf {
 		if (capacity - offset < sizeof(M4x3F32)) {
 			failed = true;
 			m = M4x3F32{};
-		} else {
+		}
+		else {
 			m.m00 = bitcast<F32>(LOAD_LE32(bytes + offset + 0));
 			m.m01 = bitcast<F32>(LOAD_LE32(bytes + offset + 4));
 			m.m02 = bitcast<F32>(LOAD_LE32(bytes + offset + 8));
@@ -671,7 +680,8 @@ struct ByteBuf {
 	FINLINE ByteBuf& write_m4x3f32(const M4x3F32& m) {
 		if (capacity - offset < sizeof(M4x3F32)) {
 			failed = true;
-		} else {
+		}
+		else {
 			STORE_LE32(bytes + offset + 0, bitcast<U32>(m.m00));
 			STORE_LE32(bytes + offset + 4, bitcast<U32>(m.m01));
 			STORE_LE32(bytes + offset + 8, bitcast<U32>(m.m02));
@@ -694,7 +704,8 @@ struct ByteBuf {
 		U32 length = read_u32();
 		if (failed || !has_data_left(length)) {
 			failed = true;
-		} else {
+		}
+		else {
 			result = StrA{ reinterpret_cast<const char*>(bytes + offset), length };
 			offset += length;
 		}
@@ -703,7 +714,8 @@ struct ByteBuf {
 	FINLINE ByteBuf& write_stra(StrA str) {
 		if (str.length > U64(U32_MAX) || capacity - offset < U32(str.length)) {
 			failed = true;
-		} else {
+		}
+		else {
 			STORE_LE32(bytes + offset, U32(str.length));
 			memcpy(bytes + offset + sizeof(U32), str.str, str.length);
 			offset += 4 + U32(str.length);
@@ -738,7 +750,8 @@ void println(StrA str) {
 void print_integer(U64 num) {
 	if (num == 0) {
 		print("0");
-	} else {
+	}
+	else {
 		char buffer[32];
 		buffer[31] = '\0';
 		char* str = buffer + 31;
@@ -764,7 +777,7 @@ void print_integer_pad(U64 num, I32 pad) {
 	print(str);
 }
 namespace SerializeTools {
-void serialize_f64(char* dstBuffer, U32* dstBufferSize, F64 startValue);
+	void serialize_f64(char* dstBuffer, U32* dstBufferSize, F64 startValue);
 }
 void print_float(F64 f) {
 	char floatBuf[64];
@@ -805,7 +818,8 @@ T* read_full_file_to_arena(U32* count, MemoryArena& arena, StrA fileName) {
 		}
 		CloseHandle(file);
 		*count = numBytesRead / sizeof(T);
-	} else {
+	}
+	else {
 		print("Failed to create file, code: ");
 		println_integer(GetLastError());
 	}
@@ -820,7 +834,8 @@ B32 write_data_to_file(StrA fileName, void* data, U32 numBytes) {
 	if (file != INVALID_HANDLE_VALUE) {
 		success = !!WriteFile(file, data, numBytes, 0, NULL);
 		CloseHandle(file);
-	} else {
+	}
+	else {
 		print("Failed to create file, code: ");
 		println_integer(GetLastError());
 	}
@@ -842,13 +857,14 @@ B32 run_program_and_wait(U32* exitCodeOut, StrA programName, StrA commandLine) {
 		startupInfo.cb = sizeof(STARTUPINFOA);
 		PROCESS_INFORMATION procInfo{};
 		success = CreateProcessA(programName.c_str(stackArena), commandLineCStr, NULL, NULL, FALSE, 0, NULL, NULL, &startupInfo, &procInfo);
-		
+
 		if (success) {
 			WaitForSingleObject(procInfo.hProcess, INFINITE);
 			DWORD exitCode;
 			if (GetExitCodeProcess(procInfo.hProcess, &exitCode)) {
 				*exitCodeOut = exitCode;
-			} else {
+			}
+			else {
 				*exitCodeOut = U32(-1);
 			}
 			CloseHandle(procInfo.hProcess);

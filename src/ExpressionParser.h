@@ -185,12 +185,14 @@ namespace tbrs {
 		ByteCode* code;
 		U64 len;
 		B8 valid;
+		B8 operatesOnBuffer;
 
 		void init() {
 			constants = nullptr;
 			code = nullptr;
 			len = 0;
 			valid = false;
+			operatesOnBuffer = false;
 		}
 
 		void destroy() {
@@ -253,6 +255,13 @@ namespace tbrs {
 		result.len = code.size();
 		result.valid = true;
 
+		for (ByteCode op : code) {
+			if (op == LDIN) {
+				result.operatesOnBuffer = true;
+				break;
+			}
+		}
+
 		memcpy(result.code, code.data(), code.size() * sizeof(ByteCode));
 		memcpy(result.constants, constants.data(), constants.size() * sizeof(F64));
 
@@ -283,7 +292,7 @@ namespace tbrs {
 		std::stack<AVX2D> stack;
 		AVX2D op1, op2;
 		U64 constIdx = 0;
-		for (U32 i = 0; i < program.len; i++) {
+		for (U64 i = 0; i < program.len; i++) {
 			switch (program.code[i]) {
 			case LDIN:
 				stack.push(input);

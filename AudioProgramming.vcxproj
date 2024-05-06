@@ -190,6 +190,7 @@
     <ClInclude Include="src\MSDFGenerator.h" />
     <ClInclude Include="src\Nodes.h" />
     <ClInclude Include="src\NodeUI.h" />
+    <ClInclude Include="src\Serialization.h" />
     <ClInclude Include="src\SerializeTools.h" />
     <ClInclude Include="src\PNG.h" />
     <ClInclude Include="src\TextRenderer.h" />

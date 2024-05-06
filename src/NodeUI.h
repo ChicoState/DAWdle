@@ -2,6 +2,7 @@
 #include "DrillLib.h"
 #include "Nodes.h"
 #include "UI.h"
+#include "Serialization.h"
 
 namespace NodeUI {
 
@@ -33,6 +34,45 @@ struct Panel {
 		workingBox = BoxHandle{ panelBox, panelBox->generation };
 
 		UI_RBOX() {
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+			text_button("Save Project"sa, [](Box* box) {
+				Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
+				if (graph) {
+					char savePath[260] = {};
+					OPENFILENAMEA fileDialogOptions{};
+					fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
+					fileDialogOptions.hwndOwner = Win32::window;
+					fileDialogOptions.lpstrFilter = "DAWdle Project (*.dawdle)\0*.dawdle\0";
+					fileDialogOptions.lpstrFile = savePath;
+					fileDialogOptions.nMaxFile = sizeof(savePath);
+					fileDialogOptions.Flags = OFN_OVERWRITEPROMPT;
+					inDialog = true;
+					if (GetSaveFileNameA(&fileDialogOptions)) {
+						Serialization::SaveNodeGraph(*graph, savePath);
+					}
+					inDialog = false;
+				}
+			}).unsafeBox->userData[1] = UPtr(this);
+			spacer(500);
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+			text_button("Load Project"sa, [](Box* box) {
+				Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
+				if (graph) {
+					char loadPath[260] = {};
+					OPENFILENAMEA fileDialogOptions{};
+					fileDialogOptions.lStructSize = sizeof(fileDialogOptions);
+					fileDialogOptions.hwndOwner = Win32::window;
+					fileDialogOptions.lpstrFilter = "DAWdle Project (*.dawdle)\0*.dawdle\0";
+					fileDialogOptions.lpstrFile = loadPath;
+					fileDialogOptions.nMaxFile = sizeof(loadPath);
+					fileDialogOptions.Flags = OFN_FILEMUSTEXIST;
+					inDialog = true;
+					if (GetOpenFileNameA(&fileDialogOptions)) {
+						Serialization::LoadNodeGraph(*graph, loadPath);
+					}
+					inDialog = false;
+				}
+			}).unsafeBox->userData[1] = UPtr(this);
 			spacer();
 			UI_BACKGROUND_COLOR((V4F32{ 0.02F, 0.02F, 0.02F, 1.0F }))
 			button(Textures::uiX, [](Box* box) { reinterpret_cast<Panel*>(box->userData[1])->destroy(); }).unsafeBox->userData[1] = reinterpret_cast<UPtr>(this);
@@ -84,17 +124,20 @@ struct Panel {
 			if (comm.keyPressed == Win32::KEY_T) {
 				panel.nodeGraph->create_node<Nodes::NodeTimeIn>(mouseRelative);
 			}
-			if (comm.keyPressed == Win32::KEY_S) {
-				panel.nodeGraph->create_node<Nodes::NodeSine>(mouseRelative);
+			if (comm.keyPressed == Win32::KEY_W) {
+				panel.nodeGraph->create_node<Nodes::NodeWave>(mouseRelative);
 			}
 			if (comm.keyPressed == Win32::KEY_O) {
 				panel.nodeGraph->create_node<Nodes::NodeOscilloscope>(mouseRelative);
 			}
-			if (comm.keyPressed == Win32::KEY_A) {
+			if (comm.keyPressed == Win32::KEY_S) {
 				panel.nodeGraph->create_node<Nodes::NodeSampler>(mouseRelative);
 			}
 			if (comm.keyPressed == Win32::KEY_P) {
 				panel.nodeGraph->create_node<Nodes::NodePianoRoll>(mouseRelative);
+			}
+			if (comm.keyPressed == Win32::KEY_F) {
+				panel.nodeGraph->create_node<Nodes::NodeFilter>(mouseRelative);
 			}
 
 			if (comm.rightClickStart) {
@@ -111,7 +154,7 @@ struct Panel {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeTimeIn>(bitcast<V2F32>(box->parent->userData[1]));
 					});
 					text_button("Tone"sa, [](Box* box) {
-						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSine>(bitcast<V2F32>(box->parent->userData[1]));
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeWave>(bitcast<V2F32>(box->parent->userData[1]));
 					});
 					text_button("Oscilloscope"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeOscilloscope>(bitcast<V2F32>(box->parent->userData[1]));
@@ -119,6 +162,9 @@ struct Panel {
 					text_button("Sampler"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeSampler>(bitcast<V2F32>(box->parent->userData[1]));
 					});
+					text_button("Filter"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeFilter>(bitcast<V2F32>(box->parent->userData[1]));
+						});
 					text_button("Piano Roll"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodePianoRoll>(bitcast<V2F32>(box->parent->userData[1]));
 					});
