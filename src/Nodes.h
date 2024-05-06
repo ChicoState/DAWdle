@@ -95,10 +95,10 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 		// All buffers *should* be the same size, but just in case
 		if (input.buffer != input.scalarBuffer) {
 			bufferLength = min(bufferLength, input.bufferLength);
+			listEndsLength = min(listEndsLength, input.listEnds ? input.listEndsLength : input.bufferLength);
 			allScalar = false;
 		}
 		maxBufferLength = max(maxBufferLength, input.bufferLength);
-		listEndsLength = min(listEndsLength, input.listEnds ? input.listEndsLength : input.bufferLength);
 		if (input.listEndsLength) {
 			listEndsMinBufferLength = min(listEndsMinBufferLength, input.bufferLength);
 			if (listEnds != nullptr && listEnds != input.listEnds) {
@@ -177,7 +177,7 @@ void make_node_io_consistent(NodeIOValue** inputs, U32 inputCount, NodeIOValue**
 	for (U32 i = 0; i < outputCount; i++) {
 		NodeIOValue& output = *outputs[i];
 		output.bufferLength = bufferLength;
-		output.listEndsLength = listEndsLength;
+		output.listEndsLength = listEnds ? listEndsLength : 0;
 		output.listEnds = listEnds;
 		if (bufferLength <= ARRAY_COUNT(output.scalarBuffer)) {
 			output.bufferMask = ARRAY_COUNT(output.scalarBuffer) - 1;
