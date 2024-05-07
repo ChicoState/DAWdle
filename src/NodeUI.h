@@ -80,6 +80,14 @@ struct Panel {
 			}).unsafeBox->userData[1] = UPtr(this);
 			spacer(500);
 			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
+				text_button("Clear"sa, [](Box* box) {
+				Nodes::NodeGraph* graph = reinterpret_cast<Panel*>(box->userData[1])->nodeGraph;
+				if (graph) {
+					graph->delete_all_nodes();
+				}
+					}).unsafeBox->userData[1] = UPtr(this);
+			spacer(5000);
+			UI_BACKGROUND_COLOR((V4F32{ 0.05F, 0.05F, 0.05F, 1.0F }))
 			text_button("Play/Pause"sa, [](Box* box) {
 				DAWdle::isPaused = !DAWdle::isPaused;
 			});
