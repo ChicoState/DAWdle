@@ -751,7 +751,7 @@ namespace MemoryTests {
 	}
 
 	TEST(Strcmp, MultiByteCharacters) {
-		EXPECT_GT(strcmp("éstevan", "estevan"), 0);
+		EXPECT_GT(strcmp("Ã©stevan", "estevan"), 0);
 	}
 
 	TEST(Strcmp, NullTerminatedCheck) {
@@ -811,4 +811,64 @@ namespace MemoryTests {
 		char buffer2[10] = "hello";
 		EXPECT_EQ(memcmp(buffer1, buffer2, 3), 0);
 	}
+}
+
+namespace ByteBuffer {
+
+	const StrA str = "dawdleDotcom"sa;
+
+	TEST(ByteBuff, Wrap) {
+		ByteBuf test;
+		U8 testValue = 'a';
+		U8* testdata = &testValue;
+		U32 dataSize = sizeof(testdata);
+		test.wrap(testdata, dataSize);
+		EXPECT_EQ(test.bytes, 'a');
+	}
+
+	TEST(ByteBuff, has_data_left) {
+		ByteBuf test;
+		U8 testValue = 'a';
+		U8* testdata = &testValue;
+		U32 dataSize = sizeof(testdata);
+		test.wrap(testdata, dataSize);
+		EXPECT_TRUE(test.has_data_left(dataSize));
+	}
+
+	TEST(ByteBuff, skip) {
+		ByteBuf test;
+		U8 testValue = 'a';
+		U8* testdata = &testValue;
+		U32 dataSize = sizeof(testdata);
+		test.wrap(testdata, dataSize);
+		test.skip(1);
+		EXPECT_EQ(test.bytes, 'a');
+	}
+
+	TEST(ByteBuff, read_bytes) {
+		ByteBuf test;
+		U8 testValue = 'a';
+		U8* testdata = &testValue;
+		U32 dataSize = sizeof(testdata);
+		test.read_bytes(testdata, dataSize);
+		EXPECT_EQ(test.bytes, 'a');
+	}
+
+	TEST(ByteBuff, write_bytes) {
+		ByteBuf test;
+		ByteBuf result;
+		U8 testValue = 'a';
+		U8* testdata = &testValue;
+		U32 dataSize = sizeof(testdata);
+		result = test.write_bytes(testdata, dataSize);
+		EXPECT_EQ(test.bytes, result);
+	}
+
+	TEST(ByteBuff, write_stra) {
+		ByteBuf test;
+		ByteBuf result;
+		result = test.write_stra(str);
+		EXPECT_EQ(test.bytes, result);
+	}
+
 }
