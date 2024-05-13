@@ -5,7 +5,11 @@
 #include "DrillLib.h"
 #include "UI.h"
 #include "ExpressionParser.h"
+#include "FFT.h"
 
+namespace DAWdle {
+extern F64 audioPlaybackTime;
+}
 namespace Nodes {
 
 const U32 PROCESS_BUFFER_SIZE = 1024;
@@ -35,7 +39,11 @@ void process_node(NodeHeader* node);
 	X(SAMPLER, NodeSampler)\
 	X(FILTER, NodeFilter)\
 	X(PIANO_ROLL, NodePianoRoll)\
-	X(LIST_COLLAPSE, NodeListCollapse)
+	X(LIST_COLLAPSE, NodeListCollapse)\
+	X(TO_FREQUENCY_DOMAIN, NodeFFT)\
+	X(TO_TIME_DOMAIN, NodeIFFT)\
+	X(TO_POLAR, NodeToPolar)\
+	X(FROM_POLAR, NodeFromPolar)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -349,7 +357,7 @@ struct NodeWidgetOscilloscope {
 						//TODO the number of points can be reduced depending on the render size (no point in rendering a 1024 segment line if it's only 100 pixels wide)
 						for (size_t i = 0; i < osc.waveformBufferSize; ++i) {
 							points[i].x = origin.x + (i / (F32)osc.waveformBufferSize) * width;
-							points[i].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
+							points[i].y = origin.y + height / 2 - osc.waveformBuffer[i] * height / 2;
 						}
 						comm.tessellator->ui_line_strip(points, osc.waveformBufferSize, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 					}
@@ -378,9 +386,11 @@ struct NodeWidgetSamplerButton {
 	F32* audioData = nullptr;
 	U64 numSamples = 0;
 	I32 sampleRate = 0;
+	F32* phaseAccumulation;
 
 	void init() {
 		header.init(NODE_WIDGET_SAMPLER_BUTTON);
+		phaseAccumulation = reinterpret_cast<F32*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 1024 * sizeof(F32)));
 	}
 
 	void add_to_ui() {
@@ -432,6 +442,7 @@ struct NodeWidgetSamplerButton {
 
 	void destroy() {
 		delete audioData;
+		HeapFree(GetProcessHeap(), 0, phaseAccumulation);
 	}
 };
 struct NodeWidgetCustomUIElement {
@@ -606,6 +617,9 @@ struct NodeWidgetPianoRoll {
 	PianoRollNote* notes;
 	U32 noteCount;
 	U32 noteCapacity;
+	UI::BoxHandle scrollBarHandle;
+	F64 manuallyPlayedNoteStart;
+	Note manuallyPlayedNote;
 
 	U32 find_note_start_for_time(F32 time) {
 		if (noteCount == 0 || time < 0.0F) {
@@ -664,6 +678,15 @@ struct NodeWidgetPianoRoll {
 				result[resultCapacity + valueCount] = note.frequency;
 				valueCount++;
 			}
+			if (manuallyPlayedNote != NOTE_Count) {
+				if (valueCount == resultCapacity) {
+					memcpy(result + resultCapacity * 2, result + resultCapacity, resultCapacity * sizeof(U64));
+					resultCapacity *= 2;
+				}
+				result[valueCount] = inputTime - manuallyPlayedNoteStart;
+				result[resultCapacity + valueCount] = NOTE_FREQUENCIES[manuallyPlayedNote];
+				valueCount++;
+			}
 			*endsPtr++ = valueCount;
 		}
 		*resultTimeOut = result;
@@ -676,6 +699,7 @@ struct NodeWidgetPianoRoll {
 		noteCapacity = 64;
 		notes = reinterpret_cast<PianoRollNote*>(HeapAlloc(GetProcessHeap(), 0, noteCapacity * sizeof(PianoRollNote)));
 		noteCount = 0;
+		manuallyPlayedNote = NOTE_Count;
 	}
 	void add_to_ui() {
 		using namespace UI;
@@ -693,10 +717,11 @@ struct NodeWidgetPianoRoll {
 				piano.unsafeBox->backgroundColor = V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }.to_rgba8();
 				piano.unsafeBox->minSize = V2F32{ 60.0F, 1200.0F };
 				piano.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+					NodeWidgetPianoRoll& pianoRoll = *reinterpret_cast<NodeWidgetPianoRoll*>(box->userData[0]);
 					if (comm.tessellator) {
 						for (U32 i = 0; i < 10; i++) {
 							U32 baseOffset = (10 - i) * 120;
-							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F}, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 34.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 16.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 49.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 36.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 64.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 51.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
@@ -710,13 +735,57 @@ struct NodeWidgetPianoRoll {
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 70.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 60.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 90.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 80.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 110.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 100.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
-							
+
 							TextRenderer::draw_string_batched(*comm.tessellator, NOTE_DISPLAY_NAMES[i * 12], mix(comm.renderArea.minX, comm.renderArea.maxX, 0.75F), comm.renderArea.minY + (baseOffset - 12.0F) * comm.scale, comm.renderZ, 12.0F * comm.scale, V4F32{ 0.0F, 0.0F, 0.0F, 1.0F }, comm.clipBoxIndex << 16);
 						}
 						return ACTION_HANDLED;
 					}
+					if (comm.leftClickStart) {
+						Note noteBase = NOTE_C0;
+						for (U32 i = 0; i < 10; i++) {
+							U32 baseOffset = (10 - i) * 120;
+							F32 halfMaxX = (comm.renderArea.minX + comm.renderArea.maxX) * 0.5F;
+							pianoRoll.manuallyPlayedNoteStart = DAWdle::audioPlaybackTime;
+							if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 20.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 10.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_C0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 40.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 30.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_D0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 70.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 60.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_F0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 90.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 80.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_G0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 110.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 100.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_A0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_C0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 34.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 16.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_D0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 49.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 36.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_E0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 64.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 51.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_F0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 84.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 66.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_G0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 104.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 86.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_A0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 119.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 106.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_B0);
+							}
+							noteBase = Note(U32(noteBase) + 12);
+						}
+						return ACTION_HANDLED;
+					}
+					if (comm.leftClicked) {
+						pianoRoll.manuallyPlayedNote = NOTE_Count;
+						return ACTION_HANDLED;
+					}
+					if (comm.scrollInput) {
+						scroll_bar_manual_input(pianoRoll.scrollBarHandle, -comm.scrollInput * 0.1F / comm.scale);
+						return ACTION_HANDLED;
+					}
 					return ACTION_PASS;
 				};
+				piano.unsafeBox->userData[0] = UPtr(this);
 				
 
 				BoxHandle roll = generic_box();
@@ -770,6 +839,11 @@ struct NodeWidgetPianoRoll {
 						F32 startTime = 0.25F * floorf32(mouseRelative.x * 0.1F);
 						Note assignedNote = Note(U32(floorf32((1200.0F - mouseRelative.y) * 0.1F)));
 						pianoRoll.add_note(PianoRollNote{ startTime, startTime + 1.0F, assignedNote, NOTE_FREQUENCIES[assignedNote] });
+						pianoRoll.manuallyPlayedNote = assignedNote;
+						return ACTION_HANDLED;
+					}
+					if (comm.leftClicked) {
+						pianoRoll.manuallyPlayedNote = NOTE_Count;
 						return ACTION_HANDLED;
 					}
 					if (comm.rightClickStart) {
@@ -786,7 +860,7 @@ struct NodeWidgetPianoRoll {
 				};
 				roll.unsafeBox->userData[0] = UPtr(this);
 			}
-			scroll_bar(rollUI, 8.0F);
+			scrollBarHandle = scroll_bar(rollUI, 8.0F);
 		}
 	}
 	void destroy() {
@@ -947,7 +1021,19 @@ struct NodeChannelOut {
 	F64* get_output_buffer(U32* lengthOut, U32* maskOut) {
 		NodeIOValue& val = header.get_input(0)->value;
 		if (val.listEndsLength) {
-			return nullptr;
+			*lengthOut = val.listEndsLength;
+			*maskOut = U32_MAX;
+			F64* buffer = audioArena.alloc_aligned_with_slack<F64>(val.listEndsLength, alignof(__m256), 2 * sizeof(__m256));
+			U32 prevEnd = 0;
+			for (U32 i = 0; i < val.listEndsLength; i++) {
+				F64 accumulator = 0.0;
+				for (U32 j = prevEnd; j < val.listEnds[i]; j++) {
+					accumulator += val.buffer[j];
+				}
+				buffer[i] = accumulator;
+				prevEnd = val.listEnds[i];
+			}
+			return buffer;
 		} else {
 			*lengthOut = val.bufferLength;
 			*maskOut = val.bufferMask;
@@ -1317,7 +1403,9 @@ enum MathOp {
 	// Binary logic
 	MATH_OP_AND,
 	MATH_OP_OR,
-	MATH_OP_XOR
+	MATH_OP_XOR,
+	MATH_OP_MIN,
+	MATH_OP_MAX
 };
 StrA math_op_name(MathOp m) {
 	switch (m) {
@@ -1341,6 +1429,8 @@ StrA math_op_name(MathOp m) {
 	case MATH_OP_AND:   return "And"sa;
 	case MATH_OP_OR:    return "Or"sa;
 	case MATH_OP_XOR:   return "Xor"sa;
+	case MATH_OP_MIN:   return "Min"sa;
+	case MATH_OP_MAX:   return "Max"sa;
 	}
 	return ""sa;
 }
@@ -1402,7 +1492,7 @@ struct NodeMathOp {
 							UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 1.0F }))
 							generic_box();
 
-							for (MathOp op = MATH_OP_AND; op <= MATH_OP_XOR; op = MathOp(U32(op) + 1)) {
+							for (MathOp op = MATH_OP_AND; op <= MATH_OP_MAX; op = MathOp(U32(op) + 1)) {
 								text_button(math_op_name(op), callback).unsafeBox->userData[1] = op;
 							}
 						}
@@ -1416,7 +1506,7 @@ struct NodeMathOp {
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 		header.add_widget()->input.init(0.0);
-		op = MATH_OP_ADD;
+		set_op(MATH_OP_ADD);
 	}
 	void process() {
 		NodeIOValue& operandA = header.get_input(0)->value;
@@ -1560,6 +1650,16 @@ struct NodeMathOp {
 				_mm256_store_pd(output.buffer + i, _mm256_and_pd(one, _mm256_xor_pd(aIsNotZero, bIsNotZero)));
 			}
 		} break;
+		case MATH_OP_MIN: {
+			for (U32 i = 0; i < output.bufferLength; i += 4) {
+				_mm256_store_pd(output.buffer + i, _mm256_min_pd(_mm256_load_pd(operandA.buffer + (i & operandA.bufferMask)), _mm256_load_pd(operandB.buffer + (i & operandB.bufferMask))));
+			}
+		} break;
+		case MATH_OP_MAX: {
+			for (U32 i = 0; i < output.bufferLength; i += 4) {
+				_mm256_store_pd(output.buffer + i, _mm256_max_pd(_mm256_load_pd(operandA.buffer + (i & operandA.bufferMask)), _mm256_load_pd(operandB.buffer + (i & operandB.bufferMask))));
+			}
+		} break;
 		}
 	}
 	void add_to_ui() {
@@ -1601,12 +1701,14 @@ struct NodeSampler {
 		header.init(NODE_SAMPLER, "Sampler"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(1.0);
 		header.add_widget()->file_dialog_button.init();
 	}
 	void process() {
 		NodeWidgetSamplerButton& button = *header.get_samplerbutton(0);
 		if (!button.audioData) return;
 		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
+		NodeIOValue& pitch = header.get_input(1)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 
 		__m256d sampleCount = _mm256_set1_pd(F64(button.numSamples));
@@ -1730,6 +1832,114 @@ struct NodeListCollapse {
 		header.add_to_ui();
 	}
 };
+template<B32 inverse>
+struct NodeFourierTransform {
+	NodeHeader header;
+
+	void init() {
+		header.init(inverse ? NODE_TO_TIME_DOMAIN : NODE_TO_FREQUENCY_DOMAIN, inverse ? "Time Domain"sa : "Freq Domain"sa);
+		header.add_widget()->output.init("x"sa);
+		header.add_widget()->output.init("y"sa);
+		if (!inverse) {
+			header.add_widget()->output.init("frequency"sa);
+		}
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& inputX = header.get_input(0)->value;
+		NodeIOValue& inputY = header.get_input(1)->value;
+		NodeIOValue& outputX = header.get_output(0)->value;
+		NodeIOValue& outputY = header.get_output(1)->value;
+		NodeIOValue& outputFreq = header.get_output(2)->value;
+
+		F32* inX = frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		F32* inY = inputY.buffer == inputY.scalarBuffer && inputY.scalarBuffer[0] == 0.0 ? nullptr : frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		F32* outX = frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		F32* outY = frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		for (U32 i = 0; i < 1024; i += 4) {
+			__m256d x = _mm256_load_pd(inputX.buffer + (i & inputX.bufferMask));
+			_mm_store_ps(inX + i, _mm256_cvtpd_ps(x));
+			if (inY) {
+				__m256d y = _mm256_load_pd(inputY.buffer + (i & inputY.bufferMask));
+				_mm_store_ps(inY + i, _mm256_cvtpd_ps(y));
+			}
+		}
+		B32 inv = inverse;
+		if (inY) {
+			FFT::fft_1024<inverse, true>(outX, outY, inX, inY);
+		} else {
+			FFT::fft_1024<inverse, false>(outX, outY, inX, inY);
+		}
+		__m256d freqScale = _mm256_set1_pd(F64(WASAPIInterface::AUDIO_FORMAT_SAMPLE_RATE_HZ[WASAPIInterface::outputAudioFormat]) / 1024.0);
+		for (U32 i = 0; i < outputX.bufferLength; i += 4) {
+			_mm256_store_pd(outputX.buffer + i, _mm256_cvtps_pd(_mm_load_ps(outX + (i & 1023))));
+			_mm256_store_pd(outputY.buffer + i, _mm256_cvtps_pd(_mm_load_ps(outY + (i & 1023))));
+			if (!inverse) {
+				_mm256_store_pd(outputFreq.buffer + i, _mm256_mul_pd(_mm256_setr_pd(F64(i), F64(i + 1), F64(i + 2), F64(i + 3)), freqScale));
+			}
+		}
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+using NodeFFT = NodeFourierTransform<false>;
+using NodeIFFT = NodeFourierTransform<true>;
+
+struct NodeToPolar {
+	NodeHeader header;
+	void init() {
+		header.init(NODE_TO_POLAR, "To Polar"sa);
+		header.add_widget()->output.init("Angle"sa);
+		header.add_widget()->output.init("Magnitude"sa);
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& x = header.get_input(0)->value;
+		NodeIOValue& y = header.get_input(1)->value;
+		NodeIOValue& angle = header.get_output(0)->value;
+		NodeIOValue& magnitude = header.get_output(1)->value;
+		for (U32 i = 0; i < angle.bufferLength; i += 4) {
+			__m256d xVal = _mm256_load_pd(x.buffer + (i & x.bufferMask));
+			__m256d yVal = _mm256_load_pd(y.buffer + (i & y.bufferMask));
+			_mm256_store_pd(angle.buffer + i, _mm256_cvtps_pd(atan2f32x4(_mm256_cvtpd_ps(yVal), _mm256_cvtpd_ps(xVal))));
+			_mm256_store_pd(magnitude.buffer + i, _mm256_sqrt_pd(_mm256_fmadd_pd(xVal, xVal, _mm256_mul_pd(yVal, yVal))));
+		}
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+struct NodeFromPolar {
+	NodeHeader header;
+	void init() {
+		header.init(NODE_FROM_POLAR, "From Polar"sa);
+		header.add_widget()->output.init("x"sa);
+		header.add_widget()->output.init("y"sa);
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& angle = header.get_input(0)->value;
+		NodeIOValue& magnitude = header.get_input(1)->value;
+		NodeIOValue& x = header.get_output(0)->value;
+		NodeIOValue& y = header.get_output(0)->value;
+		for (U32 i = 0; i < x.bufferLength; i += 4) {
+			__m256d angleVal = _mm256_load_pd(angle.buffer + (i & angle.bufferMask));
+			__m256d magnitudeVal = _mm256_load_pd(magnitude.buffer + (i & magnitude.bufferMask));
+			__m256d cosine = _mm256_cvtps_pd(cosf32x4(_mm256_cvtpd_ps(angleVal)));
+			__m256d sine = _mm256_cvtps_pd(sinf32x4(_mm256_cvtpd_ps(angleVal)));
+			_mm256_store_pd(x.buffer + i, _mm256_mul_pd(cosine, magnitudeVal));
+			_mm256_store_pd(y.buffer + i, _mm256_mul_pd(sine, magnitudeVal));
+		}
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+
 union Node {
 	Node* freeListNextPtr;
 	NodeHeader header;
@@ -1773,13 +1983,17 @@ void process_node(NodeHeader* node) {
 				process_node(input->header.parent);
 				inWidget->value = input->value;
 				if (inWidget->program.valid && (!inWidget->inputHandle.get() || inWidget->program.operatesOnBuffer)) {
+					F64* oldBuffer = inWidget->value.buffer;
+					if (inWidget->value.buffer != inWidget->value.scalarBuffer) {
+						inWidget->value.buffer = audioArena.alloc_aligned_with_slack<F64>(inWidget->value.bufferLength, alignof(__m256), 2 * sizeof(__m256));
+					}
 					if (inWidget->value.bufferMask == U32_MAX) {
 						for (U32 i = 0; i < inWidget->value.bufferLength; i += 4) {
-							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer + i)));
+							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(oldBuffer + i)));
 						}
 					}
 					else {
-						tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer));
+						tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(oldBuffer));
 						_mm256_store_pd(inWidget->value.buffer, result);
 						_mm256_store_pd(inWidget->value.buffer + 4, result);
 					}

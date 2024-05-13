@@ -198,6 +198,18 @@ struct Panel {
 					text_button("List Collapse"sa, [](Box* box) {
 						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeListCollapse>(bitcast<V2F32>(box->parent->userData[1]));
 					});
+					text_button("To Frequency Domain"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeFFT>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("To Time Domain"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeIFFT>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("To Polar"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeToPolar>(bitcast<V2F32>(box->parent->userData[1]));
+					});
+					text_button("From Polar"sa, [](Box* box) {
+						reinterpret_cast<Nodes::NodeGraph*>(box->parent->userData[0])->create_node<Nodes::NodeFromPolar>(bitcast<V2F32>(box->parent->userData[1]));
+					});
 					BoxHandle test = generic_box();
 					test.unsafeBox->flags |= BOX_FLAG_DONT_CLOSE_CONTEXT_MENU_ON_INTERACTION | BOX_FLAG_HIGHLIGHT_ON_USER_INTERACTION;
 					test.unsafeBox->text = "Another context menu"sa;
