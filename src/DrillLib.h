@@ -674,6 +674,7 @@ struct ByteBuf {
 			m.m21 = bitcast<F32>(LOAD_LE32(bytes + offset + 36));
 			m.m22 = bitcast<F32>(LOAD_LE32(bytes + offset + 40));
 			m.z = bitcast<F32>(LOAD_LE32(bytes + offset + 44));
+			offset += sizeof(M4x3F32);
 		}
 		return m;
 	}

@@ -5,6 +5,7 @@
 #include "DrillLib.h"
 #include "UI.h"
 #include "ExpressionParser.h"
+#include "FFT.h"
 
 namespace Nodes {
 
@@ -35,7 +36,11 @@ void process_node(NodeHeader* node);
 	X(SAMPLER, NodeSampler)\
 	X(FILTER, NodeFilter)\
 	X(PIANO_ROLL, NodePianoRoll)\
-	X(LIST_COLLAPSE, NodeListCollapse)
+	X(LIST_COLLAPSE, NodeListCollapse)\
+	X(TO_FREQUENCY_DOMAIN, NodeFFT)\
+	X(TO_TIME_DOMAIN, NodeIFFT)\
+	X(TO_POLAR, NodeToPolar)\
+	X(FROM_POLAR, NodeFromPolar)
 
 #define X(enumName, typeName) NODE_##enumName,
 enum NodeType : U32 {
@@ -349,7 +354,7 @@ struct NodeWidgetOscilloscope {
 						//TODO the number of points can be reduced depending on the render size (no point in rendering a 1024 segment line if it's only 100 pixels wide)
 						for (size_t i = 0; i < osc.waveformBufferSize; ++i) {
 							points[i].x = origin.x + (i / (F32)osc.waveformBufferSize) * width;
-							points[i].y = origin.y + height / 2 + osc.waveformBuffer[i] * height / 2;
+							points[i].y = origin.y + height / 2 - osc.waveformBuffer[i] * height / 2;
 						}
 						comm.tessellator->ui_line_strip(points, osc.waveformBufferSize, comm.renderZ, 2.0F, V4F32{ 1.0F, 1.0F, 1.0F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 					}
@@ -1317,7 +1322,9 @@ enum MathOp {
 	// Binary logic
 	MATH_OP_AND,
 	MATH_OP_OR,
-	MATH_OP_XOR
+	MATH_OP_XOR,
+	MATH_OP_MIN,
+	MATH_OP_MAX
 };
 StrA math_op_name(MathOp m) {
 	switch (m) {
@@ -1341,6 +1348,8 @@ StrA math_op_name(MathOp m) {
 	case MATH_OP_AND:   return "And"sa;
 	case MATH_OP_OR:    return "Or"sa;
 	case MATH_OP_XOR:   return "Xor"sa;
+	case MATH_OP_MIN:   return "Min"sa;
+	case MATH_OP_MAX:   return "Max"sa;
 	}
 	return ""sa;
 }
@@ -1402,7 +1411,7 @@ struct NodeMathOp {
 							UI_BACKGROUND_COLOR((V4F32{ 0.1F, 0.1F, 0.1F, 1.0F }))
 							generic_box();
 
-							for (MathOp op = MATH_OP_AND; op <= MATH_OP_XOR; op = MathOp(U32(op) + 1)) {
+							for (MathOp op = MATH_OP_AND; op <= MATH_OP_MAX; op = MathOp(U32(op) + 1)) {
 								text_button(math_op_name(op), callback).unsafeBox->userData[1] = op;
 							}
 						}
@@ -1416,7 +1425,7 @@ struct NodeMathOp {
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
 		header.add_widget()->input.init(0.0);
-		op = MATH_OP_ADD;
+		set_op(MATH_OP_ADD);
 	}
 	void process() {
 		NodeIOValue& operandA = header.get_input(0)->value;
@@ -1558,6 +1567,16 @@ struct NodeMathOp {
 				__m256d aIsNotZero = _mm256_cmp_pd(_mm256_load_pd(operandA.buffer + (i & operandA.bufferMask)), _mm256_setzero_pd(), _CMP_NEQ_OQ);
 				__m256d bIsNotZero = _mm256_cmp_pd(_mm256_load_pd(operandB.buffer + (i & operandB.bufferMask)), _mm256_setzero_pd(), _CMP_NEQ_OQ);
 				_mm256_store_pd(output.buffer + i, _mm256_and_pd(one, _mm256_xor_pd(aIsNotZero, bIsNotZero)));
+			}
+		} break;
+		case MATH_OP_MIN: {
+			for (U32 i = 0; i < output.bufferLength; i += 4) {
+				_mm256_store_pd(output.buffer + i, _mm256_min_pd(_mm256_load_pd(operandA.buffer + (i & operandA.bufferMask)), _mm256_load_pd(operandB.buffer + (i & operandB.bufferMask))));
+			}
+		} break;
+		case MATH_OP_MAX: {
+			for (U32 i = 0; i < output.bufferLength; i += 4) {
+				_mm256_store_pd(output.buffer + i, _mm256_max_pd(_mm256_load_pd(operandA.buffer + (i & operandA.bufferMask)), _mm256_load_pd(operandB.buffer + (i & operandB.bufferMask))));
 			}
 		} break;
 		}
@@ -1730,6 +1749,114 @@ struct NodeListCollapse {
 		header.add_to_ui();
 	}
 };
+template<B32 inverse>
+struct NodeFourierTransform {
+	NodeHeader header;
+
+	void init() {
+		header.init(inverse ? NODE_TO_TIME_DOMAIN : NODE_TO_FREQUENCY_DOMAIN, inverse ? "Time Domain"sa : "Freq Domain"sa);
+		header.add_widget()->output.init("x"sa);
+		header.add_widget()->output.init("y"sa);
+		if (!inverse) {
+			header.add_widget()->output.init("frequency"sa);
+		}
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& inputX = header.get_input(0)->value;
+		NodeIOValue& inputY = header.get_input(1)->value;
+		NodeIOValue& outputX = header.get_output(0)->value;
+		NodeIOValue& outputY = header.get_output(1)->value;
+		NodeIOValue& outputFreq = header.get_output(2)->value;
+
+		F32* inX = frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		F32* inY = inputY.buffer == inputY.scalarBuffer && inputY.scalarBuffer[0] == 0.0 ? nullptr : frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		F32* outX = frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		F32* outY = frameArena.alloc_aligned_with_slack<F32>(1024, alignof(__m256), 0);
+		for (U32 i = 0; i < 1024; i += 4) {
+			__m256d x = _mm256_load_pd(inputX.buffer + (i & inputX.bufferMask));
+			_mm_store_ps(inX + i, _mm256_cvtpd_ps(x));
+			if (inY) {
+				__m256d y = _mm256_load_pd(inputY.buffer + (i & inputY.bufferMask));
+				_mm_store_ps(inY + i, _mm256_cvtpd_ps(y));
+			}
+		}
+		B32 inv = inverse;
+		if (inY) {
+			FFT::fft_1024<inverse, true>(outX, outY, inX, inY);
+		} else {
+			FFT::fft_1024<inverse, false>(outX, outY, inX, inY);
+		}
+		__m256d freqScale = _mm256_set1_pd(F64(WASAPIInterface::AUDIO_FORMAT_SAMPLE_RATE_HZ[WASAPIInterface::outputAudioFormat]) / 1024.0);
+		for (U32 i = 0; i < outputX.bufferLength; i += 4) {
+			_mm256_store_pd(outputX.buffer + i, _mm256_cvtps_pd(_mm_load_ps(outX + (i & 1023))));
+			_mm256_store_pd(outputY.buffer + i, _mm256_cvtps_pd(_mm_load_ps(outY + (i & 1023))));
+			if (!inverse) {
+				_mm256_store_pd(outputFreq.buffer + i, _mm256_mul_pd(_mm256_setr_pd(F64(i), F64(i + 1), F64(i + 2), F64(i + 3)), freqScale));
+			}
+		}
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+using NodeFFT = NodeFourierTransform<false>;
+using NodeIFFT = NodeFourierTransform<true>;
+
+struct NodeToPolar {
+	NodeHeader header;
+	void init() {
+		header.init(NODE_TO_POLAR, "To Polar"sa);
+		header.add_widget()->output.init("Angle"sa);
+		header.add_widget()->output.init("Magnitude"sa);
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& x = header.get_input(0)->value;
+		NodeIOValue& y = header.get_input(1)->value;
+		NodeIOValue& angle = header.get_output(0)->value;
+		NodeIOValue& magnitude = header.get_output(1)->value;
+		for (U32 i = 0; i < angle.bufferLength; i += 4) {
+			__m256d xVal = _mm256_load_pd(x.buffer + (i & x.bufferMask));
+			__m256d yVal = _mm256_load_pd(y.buffer + (i & y.bufferMask));
+			_mm256_store_pd(angle.buffer + i, _mm256_cvtps_pd(atan2f32x4(_mm256_cvtpd_ps(yVal), _mm256_cvtpd_ps(xVal))));
+			_mm256_store_pd(magnitude.buffer + i, _mm256_sqrt_pd(_mm256_fmadd_pd(xVal, xVal, _mm256_mul_pd(yVal, yVal))));
+		}
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+struct NodeFromPolar {
+	NodeHeader header;
+	void init() {
+		header.init(NODE_FROM_POLAR, "From Polar"sa);
+		header.add_widget()->output.init("x"sa);
+		header.add_widget()->output.init("y"sa);
+		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(0.0);
+	}
+	void process() {
+		NodeIOValue& angle = header.get_input(0)->value;
+		NodeIOValue& magnitude = header.get_input(1)->value;
+		NodeIOValue& x = header.get_output(0)->value;
+		NodeIOValue& y = header.get_output(0)->value;
+		for (U32 i = 0; i < x.bufferLength; i += 4) {
+			__m256d angleVal = _mm256_load_pd(angle.buffer + (i & angle.bufferMask));
+			__m256d magnitudeVal = _mm256_load_pd(magnitude.buffer + (i & magnitude.bufferMask));
+			__m256d cosine = _mm256_cvtps_pd(cosf32x4(_mm256_cvtpd_ps(angleVal)));
+			__m256d sine = _mm256_cvtps_pd(sinf32x4(_mm256_cvtpd_ps(angleVal)));
+			_mm256_store_pd(x.buffer + i, _mm256_mul_pd(cosine, magnitudeVal));
+			_mm256_store_pd(y.buffer + i, _mm256_mul_pd(sine, magnitudeVal));
+		}
+	}
+	void add_to_ui() {
+		header.add_to_ui();
+	}
+};
+
 union Node {
 	Node* freeListNextPtr;
 	NodeHeader header;
@@ -1773,13 +1900,17 @@ void process_node(NodeHeader* node) {
 				process_node(input->header.parent);
 				inWidget->value = input->value;
 				if (inWidget->program.valid && (!inWidget->inputHandle.get() || inWidget->program.operatesOnBuffer)) {
+					F64* oldBuffer = inWidget->value.buffer;
+					if (inWidget->value.buffer != inWidget->value.scalarBuffer) {
+						inWidget->value.buffer = audioArena.alloc_aligned_with_slack<F64>(inWidget->value.bufferLength, alignof(__m256), 2 * sizeof(__m256));
+					}
 					if (inWidget->value.bufferMask == U32_MAX) {
 						for (U32 i = 0; i < inWidget->value.bufferLength; i += 4) {
-							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer + i)));
+							_mm256_store_pd(inWidget->value.buffer + i, interpret(inWidget->program, _mm256_load_pd(oldBuffer + i)));
 						}
 					}
 					else {
-						tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(inWidget->value.buffer));
+						tbrs::AVX2D result = interpret(inWidget->program, _mm256_load_pd(oldBuffer));
 						_mm256_store_pd(inWidget->value.buffer, result);
 						_mm256_store_pd(inWidget->value.buffer + 4, result);
 					}
