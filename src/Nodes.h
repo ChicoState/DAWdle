@@ -7,6 +7,9 @@
 #include "ExpressionParser.h"
 #include "FFT.h"
 
+namespace DAWdle {
+extern F64 audioPlaybackTime;
+}
 namespace Nodes {
 
 const U32 PROCESS_BUFFER_SIZE = 1024;
@@ -383,9 +386,11 @@ struct NodeWidgetSamplerButton {
 	F32* audioData = nullptr;
 	U64 numSamples = 0;
 	I32 sampleRate = 0;
+	F32* phaseAccumulation;
 
 	void init() {
 		header.init(NODE_WIDGET_SAMPLER_BUTTON);
+		phaseAccumulation = reinterpret_cast<F32*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 1024 * sizeof(F32)));
 	}
 
 	void add_to_ui() {
@@ -437,6 +442,7 @@ struct NodeWidgetSamplerButton {
 
 	void destroy() {
 		delete audioData;
+		HeapFree(GetProcessHeap(), 0, phaseAccumulation);
 	}
 };
 struct NodeWidgetCustomUIElement {
@@ -611,6 +617,9 @@ struct NodeWidgetPianoRoll {
 	PianoRollNote* notes;
 	U32 noteCount;
 	U32 noteCapacity;
+	UI::BoxHandle scrollBarHandle;
+	F64 manuallyPlayedNoteStart;
+	Note manuallyPlayedNote;
 
 	U32 find_note_start_for_time(F32 time) {
 		if (noteCount == 0 || time < 0.0F) {
@@ -669,6 +678,15 @@ struct NodeWidgetPianoRoll {
 				result[resultCapacity + valueCount] = note.frequency;
 				valueCount++;
 			}
+			if (manuallyPlayedNote != NOTE_Count) {
+				if (valueCount == resultCapacity) {
+					memcpy(result + resultCapacity * 2, result + resultCapacity, resultCapacity * sizeof(U64));
+					resultCapacity *= 2;
+				}
+				result[valueCount] = inputTime - manuallyPlayedNoteStart;
+				result[resultCapacity + valueCount] = NOTE_FREQUENCIES[manuallyPlayedNote];
+				valueCount++;
+			}
 			*endsPtr++ = valueCount;
 		}
 		*resultTimeOut = result;
@@ -681,6 +699,7 @@ struct NodeWidgetPianoRoll {
 		noteCapacity = 64;
 		notes = reinterpret_cast<PianoRollNote*>(HeapAlloc(GetProcessHeap(), 0, noteCapacity * sizeof(PianoRollNote)));
 		noteCount = 0;
+		manuallyPlayedNote = NOTE_Count;
 	}
 	void add_to_ui() {
 		using namespace UI;
@@ -698,10 +717,11 @@ struct NodeWidgetPianoRoll {
 				piano.unsafeBox->backgroundColor = V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }.to_rgba8();
 				piano.unsafeBox->minSize = V2F32{ 60.0F, 1200.0F };
 				piano.unsafeBox->actionCallback = [](Box* box, UserCommunication& comm) {
+					NodeWidgetPianoRoll& pianoRoll = *reinterpret_cast<NodeWidgetPianoRoll*>(box->userData[0]);
 					if (comm.tessellator) {
 						for (U32 i = 0; i < 10; i++) {
 							U32 baseOffset = (10 - i) * 120;
-							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F}, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
+							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 34.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 16.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 49.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 36.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 64.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 51.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.9F, 0.9F, 0.9F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
@@ -715,13 +735,57 @@ struct NodeWidgetPianoRoll {
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 70.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 60.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 90.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 80.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
 							comm.tessellator->ui_rect2d(comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 110.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 100.0F) * comm.scale, comm.renderZ, 0.0F, 0.0F, 1.0F, 1.0F, V4F32{ 0.04F, 0.04F, 0.04F, 1.0F }, Textures::simpleWhite.index, comm.clipBoxIndex << 16);
-							
+
 							TextRenderer::draw_string_batched(*comm.tessellator, NOTE_DISPLAY_NAMES[i * 12], mix(comm.renderArea.minX, comm.renderArea.maxX, 0.75F), comm.renderArea.minY + (baseOffset - 12.0F) * comm.scale, comm.renderZ, 12.0F * comm.scale, V4F32{ 0.0F, 0.0F, 0.0F, 1.0F }, comm.clipBoxIndex << 16);
 						}
 						return ACTION_HANDLED;
 					}
+					if (comm.leftClickStart) {
+						Note noteBase = NOTE_C0;
+						for (U32 i = 0; i < 10; i++) {
+							U32 baseOffset = (10 - i) * 120;
+							F32 halfMaxX = (comm.renderArea.minX + comm.renderArea.maxX) * 0.5F;
+							pianoRoll.manuallyPlayedNoteStart = DAWdle::audioPlaybackTime;
+							if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 20.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 10.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_C0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 40.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 30.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_D0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 70.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 60.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_F0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 90.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 80.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_G0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 110.0F) * comm.scale, halfMaxX, comm.renderArea.minY + (baseOffset - 100.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_A0S);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 14.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 1.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_C0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 34.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 16.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_D0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 49.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 36.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_E0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 64.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 51.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_F0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 84.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 66.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_G0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 104.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 86.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_A0);
+							} else if (rng_contains_point(Rng2F32{ comm.renderArea.minX, comm.renderArea.minY + (baseOffset - 119.0F) * comm.scale, comm.renderArea.maxX, comm.renderArea.minY + (baseOffset - 106.0F) * comm.scale }, comm.mousePos)) {
+								pianoRoll.manuallyPlayedNote = Note(noteBase + NOTE_B0);
+							}
+							noteBase = Note(U32(noteBase) + 12);
+						}
+						return ACTION_HANDLED;
+					}
+					if (comm.leftClicked) {
+						pianoRoll.manuallyPlayedNote = NOTE_Count;
+						return ACTION_HANDLED;
+					}
+					if (comm.scrollInput) {
+						scroll_bar_manual_input(pianoRoll.scrollBarHandle, -comm.scrollInput * 0.1F / comm.scale);
+						return ACTION_HANDLED;
+					}
 					return ACTION_PASS;
 				};
+				piano.unsafeBox->userData[0] = UPtr(this);
 				
 
 				BoxHandle roll = generic_box();
@@ -775,6 +839,11 @@ struct NodeWidgetPianoRoll {
 						F32 startTime = 0.25F * floorf32(mouseRelative.x * 0.1F);
 						Note assignedNote = Note(U32(floorf32((1200.0F - mouseRelative.y) * 0.1F)));
 						pianoRoll.add_note(PianoRollNote{ startTime, startTime + 1.0F, assignedNote, NOTE_FREQUENCIES[assignedNote] });
+						pianoRoll.manuallyPlayedNote = assignedNote;
+						return ACTION_HANDLED;
+					}
+					if (comm.leftClicked) {
+						pianoRoll.manuallyPlayedNote = NOTE_Count;
 						return ACTION_HANDLED;
 					}
 					if (comm.rightClickStart) {
@@ -791,7 +860,7 @@ struct NodeWidgetPianoRoll {
 				};
 				roll.unsafeBox->userData[0] = UPtr(this);
 			}
-			scroll_bar(rollUI, 8.0F);
+			scrollBarHandle = scroll_bar(rollUI, 8.0F);
 		}
 	}
 	void destroy() {
@@ -952,7 +1021,19 @@ struct NodeChannelOut {
 	F64* get_output_buffer(U32* lengthOut, U32* maskOut) {
 		NodeIOValue& val = header.get_input(0)->value;
 		if (val.listEndsLength) {
-			return nullptr;
+			*lengthOut = val.listEndsLength;
+			*maskOut = U32_MAX;
+			F64* buffer = audioArena.alloc_aligned_with_slack<F64>(val.listEndsLength, alignof(__m256), 2 * sizeof(__m256));
+			U32 prevEnd = 0;
+			for (U32 i = 0; i < val.listEndsLength; i++) {
+				F64 accumulator = 0.0;
+				for (U32 j = prevEnd; j < val.listEnds[i]; j++) {
+					accumulator += val.buffer[j];
+				}
+				buffer[i] = accumulator;
+				prevEnd = val.listEnds[i];
+			}
+			return buffer;
 		} else {
 			*lengthOut = val.bufferLength;
 			*maskOut = val.bufferMask;
@@ -1620,12 +1701,14 @@ struct NodeSampler {
 		header.init(NODE_SAMPLER, "Sampler"sa);
 		header.add_widget()->output.init();
 		header.add_widget()->input.init(0.0);
+		header.add_widget()->input.init(1.0);
 		header.add_widget()->file_dialog_button.init();
 	}
 	void process() {
 		NodeWidgetSamplerButton& button = *header.get_samplerbutton(0);
 		if (!button.audioData) return;
 		NodeIOValue& time = header.get_input(TIME_INPUT_IDX)->value;
+		NodeIOValue& pitch = header.get_input(1)->value;
 		NodeIOValue& output = header.get_output(0)->value;
 
 		__m256d sampleCount = _mm256_set1_pd(F64(button.numSamples));

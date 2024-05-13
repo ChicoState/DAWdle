@@ -1047,9 +1047,11 @@ BoxHandle slider_number(F64 min, F64 max, F64 step, BoxConsumer onTextUpdated) {
 	return result;
 }
 
-void scroll_bar(BoxHandle boxToScroll, F32 size) {
+BoxHandle scroll_bar(BoxHandle boxToScroll, F32 size) {
+	BoxHandle result{};
 	UI_SIZE((V2F32{ size, size }))
 	UI_DBOX() {
+		result = workingBox;
 		button(Textures::uiIncrementUp, nullptr);
 
 		BoxHandle spacerA = generic_box();
@@ -1084,6 +1086,14 @@ void scroll_bar(BoxHandle boxToScroll, F32 size) {
 		spacerB.unsafeBox->flags |= BOX_FLAG_INVISIBLE | BOX_FLAG_SPACER;
 
 		button(Textures::uiIncrementDown, nullptr);
+	}
+	return result;
+}
+void scroll_bar_manual_input(BoxHandle scrollBar, F32 scroll) {
+	if (Box* box = scrollBar.get()) {
+		UserCommunication comm{};
+		comm.drag.y = scroll;
+		box->childFirst->next->next->actionCallback(box->childFirst->next->next, comm);
 	}
 }
 
