@@ -13,6 +13,30 @@ namespace String {
 	const StrA str = "dawdleDotcom"sa;
 	const StrA str2 = "dawdledawdle"sa;
 
+	TEST(CSTR, EmptyCString) {
+		const char* str = "";
+		StrA testStr{ str, 0 };
+		EXPECT_EQ(strcmp(testStr.c_str(globalArena), ""), 0);
+	}
+
+	TEST(CSTR, NonemptyCString) {
+		const char* str = "dawdleDotcom";
+		StrA testStr{ str, 13 };
+		EXPECT_EQ(strcmp(testStr.c_str(globalArena), "dawdleDotcom"), 0);
+	}
+
+	TEST(CSTR, EmptyNonCString) {
+		const char val = '\0';
+		StrA testStr{ &val, 0 };
+		EXPECT_EQ(strcmp(testStr.c_str(globalArena), ""), 0);
+	}
+
+	TEST(CSTR, NonemptyNonCString) {
+		const char arr[] = { 'd', 'a', 'w', 'd', 'l', 'e', 'D', 'o', 't', 'c', 'o', 'm' };
+		StrA testStr{ arr, 12 };
+		EXPECT_EQ(strcmp(str.c_str(globalArena), "dawdleDotcom"), 0);
+	}
+
 	TEST(Comparison, Equals) {
 		EXPECT_TRUE(str == "dawdleDotcom"sa);
 	}
@@ -337,11 +361,43 @@ namespace String {
 }
 
 namespace ArenaArray {
-	TEST(Pushback_Contains, Single) {
+	TEST(Pushback, Single) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(42);
+		EXPECT_EQ(test.data[0], 42);
+	}
+
+	TEST(Pushback, Multiple) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(42);
+		test.push_back(41);
+		test.push_back(40);
+		EXPECT_EQ(test.data[2], 40);
+	}
+
+	TEST(Pushback, NoArgs) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back();
+		EXPECT_EQ(test.size, 1);
+	}
+
+	TEST(Contains, Single) {
 		ArenaArrayList<U32> test{};
 		test.allocator = &globalArena;
 		test.push_back(42);
 		EXPECT_TRUE(test.contains(42));
+	}
+
+	TEST(Contains, Multiple) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(42);
+		test.push_back(41);
+		test.push_back(40);
+		EXPECT_TRUE(test.contains(40));
 	}
 
 	TEST(Popback, Single) {
@@ -450,6 +506,16 @@ namespace ArenaArray {
 		EXPECT_EQ(test.data[2], 3);
 	}
 
+	TEST(PushbackN, CorrectAfterReallocation) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values1[] = { 1, 2, 3 };
+		U32 values2[] = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+		test.push_back_n(values1, 3);
+		test.push_back_n(values2, 13);
+		EXPECT_EQ(test.data[3], 4);
+	}
+
 	TEST(PopbackN, SizeCorrectAfterRemoval) {
 		ArenaArrayList<U32> test{};
 		test.allocator = &globalArena;
@@ -482,6 +548,14 @@ namespace ArenaArray {
 		U32 values[] = { 1, 2, 3, 4, 5 };
 		test.push_back_n(values, 5);
 		EXPECT_FALSE(test.subrange_contains(0, 2, 5));
+	}
+
+	TEST(SubrangeContains, BeginAfterEnd) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		U32 values[] = { 1, 2, 3, 4, 5 };
+		test.push_back_n(values, 5);
+		EXPECT_FALSE(test.subrange_contains(5, 0, 5));
 	}
 
 	TEST(Clear, ClearList) {
@@ -651,6 +725,35 @@ namespace ArenaArray {
 		}
 		test.reset();
 		EXPECT_EQ(test.capacity, 0);
+	}
+
+	TEST(Begin, BeginCorrect) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(1);
+		EXPECT_EQ(test.begin(), test.data);
+	}
+
+	TEST(End, EndCorrect) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(1);
+		EXPECT_EQ(test.end(), test.data + 1);
+	}
+
+	TEST(Back, BackOneElement) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(1);
+		EXPECT_EQ(test.back(), 1);
+	}
+
+	TEST(Back, BackMultipleElements) {
+		ArenaArrayList<U32> test{};
+		test.allocator = &globalArena;
+		test.push_back(1);
+		test.push_back(2);
+		EXPECT_EQ(test.back(), 2);
 	}
 }
 
