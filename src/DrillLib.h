@@ -23,9 +23,6 @@ DEBUG_OPTIMIZE_OFF
 #pragma warning(disable:28251) // Inconsistent annotation for ''
 #pragma warning(disable:6001) // Using uninitialized memory. There appears to be a false positive for some functions here
 
-// For some reason these functions fail to link in release mode but not in debug mode?
-#ifdef NDEBUG
-
 #pragma intrinsic(memcpy, memset, strcmp, strlen, memcmp)
 
 #pragma function(memcpy)
@@ -73,7 +70,6 @@ size_t __cdecl strlen(const char* str) {
 	}
 	return result;
 }
-#endif
 
 #pragma function(memcmp)
 int __cdecl memcmp(const void* m1, const void* m2, size_t n) {
