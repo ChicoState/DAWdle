@@ -174,18 +174,18 @@ The subjective testing consisted of three key steps: thinking of a situation the
 ### Steven Lam (slam210)
 
 **Pull Requests Contributed To:**
-- [Initial Construction](https://github.com/ChicoState/DAWdle/pull/1)
-- [Node Toolbar](https://github.com/ChicoState/DAWdle/pull/6)
-- [Initial Arithmetic](https://github.com/ChicoState/DAWdle/pull/8)
-- [Arithmetic](https://github.com/ChicoState/DAWdle/pull/9)
-- [Code Migration + PianoRoll](https://github.com/ChicoState/DAWdle/tree/QtDAWdle)
+- Initial Construction
+- Node Toolbar
+- Initial Arithmetic
+- Arithmetic
+- Code Migration + PianoRoll
 
 **PR Reviews:**
-- [Library Updates](https://github.com/ChicoState/DAWdle/pull/2)
-- [Audio Output](https://github.com/ChicoState/DAWdle/pull/7)
-- [Library Updates](https://github.com/ChicoState/DAWdle/pull/30)
-- [Issue Fix for Audio](https://github.com/ChicoState/DAWdle/pull/39)
-- [Clear Graph](https://github.com/ChicoState/DAWdle/pull/40)
+- Library Updates
+- Audio Output
+- Library Updates
+- Issue Fix for Audio
+- Clear Graph
 
 **Other Responsibilities:**
 - Subjective Test Maker
